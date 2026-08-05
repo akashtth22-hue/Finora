@@ -1,4 +1,6 @@
 "use client";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,6 +33,7 @@ const registerSchema = z
     });
 
 export default function RegisterPage() {
+    
     const {
         register,
         handleSubmit,
@@ -38,9 +41,49 @@ export default function RegisterPage() {
     } = useForm({
         resolver: zodResolver(registerSchema),
     });
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState("");
+    const [error, setError] = useState("");
+    const router = useRouter();
 
-    const onSubmit = (data: any) => {
-        console.log(data);
+    const onSubmit = async (data: any) => {
+        setLoading(true);
+        setError("");
+        setMessage("");
+
+        try {
+            const response = await fetch("/api/auth/register", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    fullName: data.fullName,
+                    email: data.email,
+                    password: data.password,
+                }),
+            });
+
+            const result = await response.json();
+
+            console.log(result);
+
+            if (!response.ok) {
+                setError(result.message);
+                return;
+            }
+
+            setMessage(result.message);
+
+            setTimeout(() => {
+                router.push("/login?registered=true");
+            }, 2000);
+
+        } catch (err) {
+            setError("Something went wrong. Please try again.");
+        } finally {
+            setLoading(false);
+        }
     };
     return (
         <AuthCard
@@ -83,9 +126,20 @@ export default function RegisterPage() {
                     register={register("confirmPassword")}
                     error={errors.confirmPassword?.message}
                 />
+                {error && (
+                    <p className="rounded-lg bg-red-100 p-3 text-sm text-red-600">
+                        {error}
+                    </p>
+                )}
+
+                {message && (
+                    <p className="rounded-lg bg-green-100 p-3 text-sm text-green-600">
+                        {message}
+                    </p>
+                )}
 
                 <AuthButton>
-                    Create Account
+                    {loading ? "Creating Account..." : "Create Account"}
                 </AuthButton>
 
             </form>

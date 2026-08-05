@@ -1,4 +1,5 @@
 "use client";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import AuthCard from "@/components/auth/AuthCard";
 import AuthInput from "@/components/auth/AuthInput";
@@ -19,6 +20,7 @@ const loginSchema = z.object({
 });
 
 export default function LoginPage() {
+
     const {
         register,
         handleSubmit,
@@ -27,14 +29,34 @@ export default function LoginPage() {
         resolver: zodResolver(loginSchema),
     });
 
-    const onSubmit = (data: any) => {
-        console.log(data);
+    const searchParams = useSearchParams();
+    const registered = searchParams.get("registered");
+    const onSubmit = async (data: any) => {
+        const response = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                email: data.email,
+                password: data.password,
+            }),
+        });
+
+        const result = await response.json();
+
+        console.log(result);
     };
     return (
         <AuthCard
             title="Welcome Back"
             subtitle="Login to continue to Finora"
         >
+            {registered && (
+                <p className="mb-4 rounded-lg bg-green-100 p-3 text-sm text-green-700">
+                    ✅ Registration successful! Please login.
+                </p>
+            )}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
 
                 <AuthInput
