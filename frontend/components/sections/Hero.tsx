@@ -1,3 +1,4 @@
+import Link from "next/link";
 import FadeIn from "@/components/ui/FadeIn";
 import { Rocket } from "lucide-react";
 import Button from "@/components/ui/Button";
@@ -29,9 +30,11 @@ export default function Hero() {
                         </p>
 
                         <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start">
-                            <Button>
-                                Get Started Free
-                            </Button>
+                            <Link href="/register">
+                                <Button>
+                                    Get Started Free
+                                </Button>
+                            </Link>
 
                             <Button variant="secondary">
                                 Watch Demo

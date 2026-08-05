@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Button from "@/components/ui/Button";
 
 export default function CTA() {
@@ -14,9 +15,11 @@ export default function CTA() {
                 </p>
 
                 <div className="mt-8 flex justify-center">
-                    <Button variant="light">
-                        Get Started Free
-                    </Button>
+                    <Link href="/register">
+                        <Button variant="light">
+                            Get Started Free
+                        </Button>
+                    </Link>
                 </div>
 
             </div>
