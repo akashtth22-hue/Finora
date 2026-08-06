@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { generateToken } from "@/lib/jwt";
 
 export async function authenticateUser(
   email: string,
@@ -28,8 +29,11 @@ export async function authenticateUser(
     };
   }
 
+  const token = await generateToken(user.id, user.email);
+
   return {
     success: true,
     user,
+    token,
   };
 }

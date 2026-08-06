@@ -1,3 +1,4 @@
+import { setAuthCookie } from "@/lib/cookies";
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateUser } from "@/lib/auth";
 
@@ -26,8 +27,7 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
-
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: "Login successful!",
       user: {
@@ -36,6 +36,16 @@ export async function POST(req: NextRequest) {
         email: result.user!.email,
       },
     });
+
+    response.cookies.set("token", result.token!, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return response;
   } catch (error) {
     console.error("Login Error:", error);
 
