@@ -1,5 +1,4 @@
 "use client";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import AuthCard from "@/components/auth/AuthCard";
 import AuthInput from "@/components/auth/AuthInput";
@@ -7,7 +6,8 @@ import AuthButton from "@/components/auth/AuthButton";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 const loginSchema = z.object({
     email: z
         .string()
@@ -28,24 +28,49 @@ export default function LoginPage() {
     } = useForm({
         resolver: zodResolver(loginSchema),
     });
+    const router = useRouter();
+
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState("");
+    const [error, setError] = useState("");
 
     const searchParams = useSearchParams();
     const registered = searchParams.get("registered");
     const onSubmit = async (data: any) => {
-        const response = await fetch("/api/auth/login", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                email: data.email,
-                password: data.password,
-            }),
-        });
+        setLoading(true);
+        setError("");
+        setMessage("");
 
-        const result = await response.json();
+        try {
+            const response = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    email: data.email,
+                    password: data.password,
+                }),
+            });
 
-        console.log(result);
+            const result = await response.json();
+
+            if (!response.ok) {
+                setError(result.message);
+                return;
+            }
+
+            setMessage(result.message);
+
+            setTimeout(() => {
+                router.push("/dashboard");
+            }, 1500);
+
+        } catch (error) {
+            setError("Something went wrong.");
+        } finally {
+            setLoading(false);
+        }
     };
     return (
         <AuthCard
@@ -86,8 +111,19 @@ export default function LoginPage() {
                 </div>
 
                 <AuthButton>
-                    Login
+                    {loading ? "Logging in..." : "Login"}
                 </AuthButton>
+                {error && (
+                    <p className="mb-4 rounded-lg bg-red-100 p-3 text-sm text-red-600">
+                        {error}
+                    </p>
+                )}
+
+                {message && (
+                    <p className="mb-4 rounded-lg bg-green-100 p-3 text-sm text-green-600">
+                        {message}
+                    </p>
+                )}
 
             </form>
             <p className="text-center text-sm text-gray-600">
