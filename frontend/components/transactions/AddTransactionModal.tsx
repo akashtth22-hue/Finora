@@ -1,48 +1,93 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { X } from "lucide-react";
 
 type Props = {
     open: boolean;
     onClose: () => void;
+    transaction?: {
+        id: string;
+        amount: number;
+        type: string;
+        category: string;
+        description: string | null;
+        date: string;
+    } | null;
 };
 
 export default function AddTransactionModal({
     open,
     onClose,
+    transaction,
 }: Props) {
 
-    const [amount, setAmount] = useState("");
-    const [type, setType] = useState("EXPENSE");
-    const [category, setCategory] = useState("");
-    const [description, setDescription] = useState("");
-    const [date, setDate] = useState("");
+    const [amount, setAmount] = useState(
+        transaction?.amount?.toString() || ""
+    );
+
+    const [type, setType] = useState(
+        transaction?.type || "EXPENSE"
+    );
+
+    const [category, setCategory] = useState(
+        transaction?.category || ""
+    );
+
+    const [description, setDescription] = useState(
+        transaction?.description || ""
+    );
+
+    const [date, setDate] = useState(
+        transaction?.date?.split("T")[0] || ""
+    );
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (transaction) {
+            setAmount(transaction.amount.toString());
+            setType(transaction.type);
+            setCategory(transaction.category);
+            setDescription(transaction.description || "");
+            setDate(transaction.date.split("T")[0]);
+        } else {
+            setAmount("");
+            setType("EXPENSE");
+            setCategory("");
+            setDescription("");
+            setDate("");
+        }
+    }, [transaction, open]);
 
     async function handleSave() {
         if (!amount || !category || !date) {
-            alert("Please fill all required fields.");
+            toast.error("Please fill all required fields.");
             return;
         }
 
         try {
             setLoading(true);
 
-            const response = await fetch("/api/transactions", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    amount: Number(amount),
-                    type,
-                    category,
-                    description,
-                    date,
-                    userId: "cmsfypha80001umfwi8n51n44",
-                }),
-            });
+            const response = await fetch(
+                transaction
+                    ? `/api/transactions/${transaction.id}`
+                    : "/api/transactions",
+                {
+                    method: transaction ? "PUT" : "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        amount: Number(amount),
+                        type,
+                        category,
+                        description,
+                        date,
+                        userId: "cmsfypha80001umfwi8n51n44",
+                    }),
+                }
+            );
 
             const result = await response.json();
 
@@ -51,7 +96,11 @@ export default function AddTransactionModal({
                 return;
             }
 
-            alert("Transaction Added Successfully!");
+            toast.success(
+                transaction
+                    ? "Transaction updated successfully."
+                    : "Transaction added successfully."
+            );
 
             setAmount("");
             setCategory("");
@@ -65,7 +114,7 @@ export default function AddTransactionModal({
 
         } catch (error) {
             console.error(error);
-            alert("Something went wrong.");
+            toast.error("Something went wrong.");
         } finally {
             setLoading(false);
         }
@@ -82,11 +131,13 @@ export default function AddTransactionModal({
 
                     <div>
                         <h2 className="text-2xl font-bold">
-                            Add Transaction
+                            {transaction ? "Edit Transaction" : "Add Transaction"}
                         </h2>
 
                         <p className="text-gray-500">
-                            Record your income or expense.
+                            {transaction
+                                ? "Update your transaction."
+                                : "Record your income or expense."}
                         </p>
                     </div>
 
@@ -115,12 +166,20 @@ export default function AddTransactionModal({
                         <option value="INCOME">Income</option>
                     </select>
 
-                    <input
-                        placeholder="Category"
+                    <select
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
                         className="w-full rounded-xl border p-3"
-                    />
+                    >
+                        <option value="">Select Category</option>
+                        <option value="Food">Food</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Transport">Transport</option>
+                        <option value="Salary">Salary</option>
+                        <option value="Bills">Bills</option>
+                        <option value="Healthcare">Healthcare</option>
+                        <option value="Entertainment">Entertainment</option>
+                    </select>
 
                     <input
                         placeholder="Description"
@@ -152,7 +211,11 @@ export default function AddTransactionModal({
                         disabled={loading}
                         className="rounded-xl bg-purple-600 px-5 py-3 text-white disabled:opacity-50"
                     >
-                        {loading ? "Saving..." : "Save Transaction"}
+                        {loading
+                            ? "Saving..."
+                            : transaction
+                                ? "Update Transaction"
+                                : "Save Transaction"}
                     </button>
 
                 </div>
