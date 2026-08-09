@@ -1,3 +1,4 @@
+import { getCurrentUser } from "@/lib/getCurrentUser";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -10,6 +11,18 @@ export async function PUT(
   { params }: { params: Params }
 ) {
   try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized",
+        },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
 
     const body = await req.json();
@@ -29,6 +42,23 @@ export async function PUT(
           message: "All required fields are mandatory.",
         },
         { status: 400 }
+      );
+    }
+
+    const existingTransaction = await prisma.transaction.findFirst({
+      where: {
+        id,
+        userId: user.id,
+      },
+    });
+
+    if (!existingTransaction) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Transaction not found.",
+        },
+        { status: 404 }
       );
     }
 

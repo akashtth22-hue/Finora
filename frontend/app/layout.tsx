@@ -30,10 +30,11 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-screen bg-gray-100">
+      <body>
         <QueryProvider>
           {children}
         </QueryProvider>
+
         <Toaster
           richColors
           position="top-right"

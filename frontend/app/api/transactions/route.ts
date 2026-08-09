@@ -1,8 +1,21 @@
+import { getCurrentUser } from "@/lib/getCurrentUser";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized",
+        },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
 
     const {
@@ -11,15 +24,13 @@ export async function POST(req: NextRequest) {
       category,
       description,
       date,
-      userId,
     } = body;
 
     if (
       !amount ||
       !type ||
       !category ||
-      !date ||
-      !userId
+      !date
     ) {
       return NextResponse.json(
         {
@@ -37,7 +48,7 @@ export async function POST(req: NextRequest) {
         category,
         description,
         date: new Date(date),
-        userId,
+        userId: user.id,
       },
     });
 
@@ -61,23 +72,21 @@ export async function POST(req: NextRequest) {
 }
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
+    const user = await getCurrentUser();
 
-    const userId = searchParams.get("userId");
-
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         {
           success: false,
-          message: "User ID is required.",
+          message: "Unauthorized",
         },
-        { status: 400 }
+        { status: 401 }
       );
     }
 
     const transactions = await prisma.transaction.findMany({
       where: {
-        userId,
+        userId: user.id,
       },
       orderBy: {
         date: "desc",
@@ -103,8 +112,19 @@ export async function GET(req: NextRequest) {
 }
 export async function DELETE(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
+    const user = await getCurrentUser();
 
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized",
+        },
+        { status: 401 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
     if (!id) {
@@ -117,9 +137,26 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    await prisma.transaction.delete({
+    const transaction = await prisma.transaction.findFirst({
       where: {
         id,
+        userId: user.id,
+      },
+    });
+
+    if (!transaction) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Transaction not found.",
+        },
+        { status: 404 }
+      );
+    }
+
+    await prisma.transaction.delete({
+      where: {
+        id: transaction.id,
       },
     });
 
