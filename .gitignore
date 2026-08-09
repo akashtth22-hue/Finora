@@ -1,0 +1,14 @@
+
+/generated/prisma
+
+# Environment variables
+.env
+
+# Node modules
+node_modules
+
+# Next.js build
+.next
+
+# Logs
+*.log
