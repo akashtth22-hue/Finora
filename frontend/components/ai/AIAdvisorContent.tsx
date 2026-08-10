@@ -89,7 +89,7 @@ export default function AIAdvisorContent() {
             ) {
                 throw new Error(
                     result.message ||
-                        "Failed to load AI Advisor"
+                    "Failed to load AI Advisor"
                 );
             }
 
@@ -172,7 +172,7 @@ export default function AIAdvisorContent() {
 
                 throw new Error(
                     result.message ||
-                        "Unable to get AI response."
+                    "Unable to get AI response."
                 );
             }
 
@@ -250,12 +250,12 @@ export default function AIAdvisorContent() {
                     </div>
 
                     <h2 className="mt-5 text-xl font-bold text-gray-900">
-                        Analyzing your finances...
+                        Building your financial overview...
                     </h2>
 
                     <p className="mt-2 text-sm text-gray-500">
-                        Finora AI is reviewing your
-                        spending, budgets and savings.
+                        Finora is calculating your spending,
+                        budgets and savings insights.
                     </p>
 
                 </div>
@@ -739,13 +739,12 @@ export default function AIAdvisorContent() {
                                 </h2>
 
                                 <span
-                                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                        questionsRemaining === 0
+                                    className={`rounded-full px-3 py-1 text-xs font-semibold ${questionsRemaining === 0
                                             ? "bg-red-100 text-red-600"
                                             : questionsRemaining <= 5
                                                 ? "bg-orange-100 text-orange-600"
                                                 : "bg-purple-100 text-purple-600"
-                                    }`}
+                                        }`}
                                 >
                                     {questionsRemaining === 0
                                         ? "Daily limit reached"
@@ -828,30 +827,28 @@ export default function AIAdvisorContent() {
                                 ) => (
                                     <div
                                         key={chatMessage.id}
-                                        className={`flex gap-3 ${
-                                            chatMessage.role ===
-                                            "user"
+                                        className={`flex gap-3 ${chatMessage.role ===
+                                                "user"
                                                 ? "justify-end"
                                                 : "justify-start"
-                                        }`}
+                                            }`}
                                     >
 
                                         {chatMessage.role ===
                                             "assistant" && (
-                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
-                                                <Sparkles
-                                                    size={17}
-                                                />
-                                            </div>
-                                        )}
+                                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
+                                                    <Sparkles
+                                                        size={17}
+                                                    />
+                                                </div>
+                                            )}
 
                                         <div
-                                            className={`max-w-[85%] rounded-2xl px-4 py-3 sm:max-w-[75%] ${
-                                                chatMessage.role ===
-                                                "user"
+                                            className={`max-w-[85%] rounded-2xl px-4 py-3 sm:max-w-[75%] ${chatMessage.role ===
+                                                    "user"
                                                     ? "rounded-br-md bg-purple-600 text-white"
                                                     : "rounded-bl-md bg-gray-100 text-gray-700"
-                                            }`}
+                                                }`}
                                         >
                                             <p className="whitespace-pre-wrap text-sm leading-6">
                                                 {chatMessage.content}
@@ -860,12 +857,12 @@ export default function AIAdvisorContent() {
 
                                         {chatMessage.role ===
                                             "user" && (
-                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
-                                                <User
-                                                    size={17}
-                                                />
-                                            </div>
-                                        )}
+                                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
+                                                    <User
+                                                        size={17}
+                                                    />
+                                                </div>
+                                            )}
 
                                     </div>
                                 )
@@ -933,7 +930,7 @@ export default function AIAdvisorContent() {
                             onKeyDown={(event) => {
                                 if (
                                     event.key ===
-                                        "Enter" &&
+                                    "Enter" &&
                                     !event.shiftKey
                                 ) {
                                     event.preventDefault();

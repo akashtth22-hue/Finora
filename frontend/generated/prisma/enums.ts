@@ -23,3 +23,13 @@ export const SavingsEntryType = {
 } as const
 
 export type SavingsEntryType = (typeof SavingsEntryType)[keyof typeof SavingsEntryType]
+
+
+export const NotificationType = {
+  BUDGET_WARNING: 'BUDGET_WARNING',
+  BUDGET_EXCEEDED: 'BUDGET_EXCEEDED',
+  SAVINGS_PROGRESS: 'SAVINGS_PROGRESS',
+  SAVINGS_DEADLINE: 'SAVINGS_DEADLINE'
+} as const
+
+export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]

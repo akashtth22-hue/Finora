@@ -74,3 +74,8 @@ export type SavingsEntry = Prisma.SavingsEntryModel
  * 
  */
 export type AiUsage = Prisma.AiUsageModel
+/**
+ * Model Notification
+ * 
+ */
+export type Notification = Prisma.NotificationModel

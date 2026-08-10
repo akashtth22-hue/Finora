@@ -54,7 +54,8 @@ export const ModelName = {
   Budget: 'Budget',
   SavingsGoal: 'SavingsGoal',
   SavingsEntry: 'SavingsEntry',
-  AiUsage: 'AiUsage'
+  AiUsage: 'AiUsage',
+  Notification: 'Notification'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -152,6 +153,19 @@ export const AiUsageScalarFieldEnum = {
 } as const
 
 export type AiUsageScalarFieldEnum = (typeof AiUsageScalarFieldEnum)[keyof typeof AiUsageScalarFieldEnum]
+
+
+export const NotificationScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  message: 'message',
+  type: 'type',
+  isRead: 'isRead',
+  createdAt: 'createdAt',
+  userId: 'userId'
+} as const
+
+export type NotificationScalarFieldEnum = (typeof NotificationScalarFieldEnum)[keyof typeof NotificationScalarFieldEnum]
 
 
 export const SortOrder = {

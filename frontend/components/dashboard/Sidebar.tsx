@@ -136,7 +136,38 @@ export default function Sidebar({
             </Link>
 
             {/* Logout */}
-            <button className="group/item flex h-12 min-w-[224px] items-center gap-4 rounded-xl px-3 text-red-600 transition-all duration-200 hover:bg-red-50">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const response = await fetch(
+                    "/api/auth/logout",
+                    {
+                      method: "POST",
+                      credentials: "include",
+                    }
+                  );
+
+                  const result =
+                    await response.json();
+
+                  if (!response.ok || !result.success) {
+                    throw new Error(
+                      result.message ||
+                      "Unable to logout."
+                    );
+                  }
+
+                  window.location.href = "/login";
+                } catch (error) {
+                  console.error(
+                    "Logout error:",
+                    error
+                  );
+                }
+              }}
+              className="group/item flex h-12 min-w-[224px] items-center gap-4 rounded-xl px-3 text-red-600 transition-all duration-200 hover:bg-red-50"
+            >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
                 <LogOut size={22} />
               </div>
@@ -145,7 +176,6 @@ export default function Sidebar({
                 Logout
               </span>
             </button>
-
           </div>
         </div>
       </aside>
@@ -223,7 +253,38 @@ export default function Sidebar({
                 Settings
               </Link>
 
-              <button className="flex w-full items-center gap-4 rounded-xl px-4 py-3 text-red-600 transition hover:bg-red-50">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const response = await fetch(
+                      "/api/auth/logout",
+                      {
+                        method: "POST",
+                        credentials: "include",
+                      }
+                    );
+
+                    const result =
+                      await response.json();
+
+                    if (!response.ok || !result.success) {
+                      throw new Error(
+                        result.message ||
+                        "Unable to logout."
+                      );
+                    }
+
+                    window.location.href = "/login";
+                  } catch (error) {
+                    console.error(
+                      "Logout error:",
+                      error
+                    );
+                  }
+                }}
+                className="flex w-full items-center gap-4 rounded-xl px-4 py-3 text-red-600 transition hover:bg-red-50"
+              >
                 <LogOut size={21} />
                 Logout
               </button>

@@ -1,11 +1,17 @@
-import { GoogleGenAI } from "@google/genai";
 import { getCurrentUser } from "@/lib/getCurrentUser";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-});
+function clamp(
+    value: number,
+    min: number,
+    max: number
+) {
+    return Math.max(
+        min,
+        Math.min(max, value)
+    );
+}
 
 export async function GET() {
     try {
@@ -18,17 +24,6 @@ export async function GET() {
                     message: "Unauthorized",
                 },
                 { status: 401 }
-            );
-        }
-
-        if (!process.env.GEMINI_API_KEY) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message:
-                        "Gemini API key is not configured.",
-                },
-                { status: 500 }
             );
         }
 
@@ -73,7 +68,8 @@ export async function GET() {
          */
         const now = new Date();
 
-        const currentYear = now.getFullYear();
+        const currentYear =
+            now.getFullYear();
 
         const currentMonth =
             now.getMonth();
@@ -87,9 +83,9 @@ export async function GET() {
 
                     return (
                         date.getFullYear() ===
-                        currentYear &&
+                            currentYear &&
                         date.getMonth() ===
-                        currentMonth
+                            currentMonth
                     );
                 }
             );
@@ -145,8 +141,8 @@ export async function GET() {
         const savingsRate =
             totalIncome > 0
                 ? (netCashFlow /
-                    totalIncome) *
-                100
+                      totalIncome) *
+                  100
                 : 0;
 
         /*
@@ -203,9 +199,9 @@ export async function GET() {
 
                 return (
                     date.getFullYear() ===
-                    currentYear &&
+                        currentYear &&
                     date.getMonth() ===
-                    currentMonth
+                        currentMonth
                 );
             });
 
@@ -214,7 +210,7 @@ export async function GET() {
                 (budget) => {
                     const spent =
                         categoryMap[
-                        budget.category
+                            budget.category
                         ] || 0;
 
                     const budgetAmount =
@@ -241,10 +237,11 @@ export async function GET() {
                             remaining < 0,
 
                         percentageUsed:
-                            budgetAmount > 0
+                            budgetAmount >
+                            0
                                 ? (spent /
-                                    budgetAmount) *
-                                100
+                                      budgetAmount) *
+                                  100
                                 : 0,
                     };
                 }
@@ -305,32 +302,349 @@ export async function GET() {
                 const remaining =
                     Math.max(
                         targetAmount -
-                        currentSaved,
+                            currentSaved,
                         0
                     );
 
                 const progress =
                     targetAmount > 0
                         ? (currentSaved /
-                            targetAmount) *
-                        100
+                              targetAmount) *
+                          100
                         : 0;
 
                 return {
                     name: goal.name,
-
                     targetAmount,
-
                     currentSaved,
-
                     remaining,
-
                     progress,
-
                     deadline:
                         goal.deadline,
                 };
             });
+
+        /*
+         * =====================================================
+         * DETERMINISTIC FINANCIAL ANALYSIS
+         *
+         * No Gemini request here.
+         * This means the financial analysis remains available
+         * even when Gemini quota is exhausted.
+         * =====================================================
+         */
+
+        const overBudgetCount =
+            budgetAnalysis.filter(
+                (budget) =>
+                    budget.overBudget
+            ).length;
+
+        const budgetCount =
+            budgetAnalysis.length;
+
+        const averageGoalProgress =
+            savingsAnalysis.length > 0
+                ? savingsAnalysis.reduce(
+                      (
+                          total,
+                          goal
+                      ) =>
+                          total +
+                          goal.progress,
+                      0
+                  ) /
+                  savingsAnalysis.length
+                : 0;
+
+        /*
+         * Health score
+         *
+         * Cash flow:       30 points
+         * Savings rate:    30 points
+         * Budget control:  25 points
+         * Savings goals:   15 points
+         */
+        const cashFlowScore =
+            netCashFlow > 0
+                ? 30
+                : netCashFlow === 0
+                    ? 15
+                    : 0;
+
+        const savingsScore =
+            clamp(
+                savingsRate * 1.5,
+                0,
+                30
+            );
+
+        const budgetScore =
+            budgetCount === 0
+                ? 15
+                : clamp(
+                      25 -
+                          overBudgetCount *
+                              8,
+                      0,
+                      25
+                  );
+
+        const goalScore =
+            savingsAnalysis.length === 0
+                ? 7.5
+                : clamp(
+                      averageGoalProgress *
+                          0.15,
+                      0,
+                      15
+                  );
+
+        const healthScore = Math.round(
+            clamp(
+                cashFlowScore +
+                    savingsScore +
+                    budgetScore +
+                    goalScore,
+                0,
+                100
+            )
+        );
+
+        /*
+         * Health summary
+         */
+        let healthSummary =
+            "Your financial data is still developing. Add more income, expense, budget and savings information for a more meaningful analysis.";
+
+        if (
+            totalIncome > 0 &&
+            netCashFlow > 0 &&
+            savingsRate >= 20
+        ) {
+            healthSummary =
+                "Your current cash flow is positive and your savings rate is strong. Continue controlling discretionary spending and stay consistent with your savings goals.";
+        } else if (
+            totalIncome > 0 &&
+            netCashFlow > 0
+        ) {
+            healthSummary =
+                "You currently have positive cash flow, which is a good foundation. Your next priority should be increasing the amount you consistently save.";
+        } else if (
+            totalIncome > 0 &&
+            netCashFlow <= 0
+        ) {
+            healthSummary =
+                "Your current expenses are consuming all or more than your income. Your highest priority should be reducing unnecessary spending and restoring positive monthly cash flow.";
+        }
+
+        /*
+         * Key observations
+         */
+        const keyObservations: string[] =
+            [];
+
+        if (totalIncome > 0) {
+            keyObservations.push(
+                `You received ${formatCurrency(
+                    totalIncome
+                )} in income this month.`
+            );
+        }
+
+        if (totalExpenses > 0) {
+            keyObservations.push(
+                `You spent ${formatCurrency(
+                    totalExpenses
+                )} this month.`
+            );
+        }
+
+        if (
+            spendingByCategory.length >
+            0
+        ) {
+            const topCategory =
+                spendingByCategory[0];
+
+            keyObservations.push(
+                `${topCategory.category} is your largest spending category at ${formatCurrency(
+                    topCategory.amount
+                )}.`
+            );
+        }
+
+        if (totalIncome > 0) {
+            keyObservations.push(
+                `Your current savings rate is ${savingsRate.toFixed(
+                    1
+                )}%.`
+            );
+        }
+
+        if (budgetCount > 0) {
+            keyObservations.push(
+                `${overBudgetCount} of ${budgetCount} current budgets are over budget.`
+            );
+        }
+
+        if (
+            savingsAnalysis.length >
+            0
+        ) {
+            keyObservations.push(
+                `You currently have ${savingsAnalysis.length} active savings goal${
+                    savingsAnalysis.length ===
+                    1
+                        ? ""
+                        : "s"
+                }.`
+            );
+        }
+
+        /*
+         * Warnings
+         */
+        const warnings: string[] =
+            [];
+
+        if (
+            totalIncome > 0 &&
+            netCashFlow < 0
+        ) {
+            warnings.push(
+                `Your expenses exceed your income by ${formatCurrency(
+                    Math.abs(
+                        netCashFlow
+                    )
+                )} this month.`
+            );
+        }
+
+        if (
+            totalIncome > 0 &&
+            savingsRate >= 0 &&
+            savingsRate < 10
+        ) {
+            warnings.push(
+                "Your current savings rate is below 10%. Try to create a consistent savings buffer."
+            );
+        }
+
+        budgetAnalysis
+            .filter(
+                (budget) =>
+                    budget.overBudget
+            )
+            .slice(0, 3)
+            .forEach((budget) => {
+                warnings.push(
+                    `${budget.category} is over budget by ${formatCurrency(
+                        Math.abs(
+                            budget.remaining
+                        )
+                    )}.`
+                );
+            });
+
+        if (
+            totalIncome === 0 &&
+            totalExpenses > 0
+        ) {
+            warnings.push(
+                "You have recorded expenses this month but no income. Make sure your income records are up to date."
+            );
+        }
+
+        /*
+         * Savings advice
+         */
+        let savingsAdvice =
+            "Start by setting a realistic savings goal and recording your income and expenses consistently.";
+
+        if (
+            totalIncome > 0 &&
+            savingsRate >= 20
+        ) {
+            savingsAdvice =
+                "Your savings rate is strong. Protect this habit by automating savings and keeping lifestyle spending under control.";
+        } else if (
+            totalIncome > 0 &&
+            savingsRate >= 10
+        ) {
+            savingsAdvice =
+                "You are saving something each month. Try gradually increasing your savings rate toward 20% without creating unrealistic restrictions.";
+        } else if (
+            totalIncome > 0 &&
+            savingsRate >= 0
+        ) {
+            savingsAdvice =
+                "You have positive cash flow, but your savings rate is low. Identify your largest discretionary expense and redirect part of it toward savings.";
+        } else if (
+            totalIncome > 0
+        ) {
+            savingsAdvice =
+                "Focus on restoring positive cash flow first. Once your expenses are consistently below your income, build a small emergency buffer.";
+        }
+
+        /*
+         * Action plan
+         */
+        const actionPlan: string[] =
+            [];
+
+        if (
+            netCashFlow <= 0 &&
+            totalIncome > 0
+        ) {
+            actionPlan.push(
+                "Reduce unnecessary spending until your monthly cash flow becomes positive."
+            );
+        }
+
+        if (
+            spendingByCategory.length >
+            0
+        ) {
+            actionPlan.push(
+                `Review your ${spendingByCategory[0].category} spending because it is currently your largest expense category.`
+            );
+        }
+
+        if (
+            overBudgetCount > 0
+        ) {
+            actionPlan.push(
+                "Review your over-budget categories before making additional discretionary purchases."
+            );
+        }
+
+        if (
+            totalIncome > 0 &&
+            savingsRate < 20
+        ) {
+            actionPlan.push(
+                "Set aside a fixed amount immediately after receiving income instead of saving only what remains."
+            );
+        }
+
+        if (
+            savingsAnalysis.length === 0
+        ) {
+            actionPlan.push(
+                "Create your first savings goal so you have a measurable target."
+            );
+        }
+
+        if (actionPlan.length === 0) {
+            actionPlan.push(
+                "Keep your current spending and savings habits consistent."
+            );
+
+            actionPlan.push(
+                "Review your financial progress at the end of each month."
+            );
+        }
 
         /*
          * Structured financial context
@@ -357,160 +671,56 @@ export async function GET() {
         };
 
         /*
-         * AI prompt
+         * Financial insights
+         *
+         * These are calculated locally.
+         * Gemini is NOT required.
          */
-        const prompt = `
-You are Finora AI, a personal finance advisor.
+        const insights = {
+            healthScore,
 
-Analyze the user's financial data below.
+            healthSummary,
 
-Your job is to provide practical, clear and responsible
-financial guidance.
+            keyObservations,
 
-IMPORTANT RULES:
+            warnings,
 
-1. Use ONLY the financial data provided below.
-2. Never invent transactions, income, expenses, budgets,
-   savings goals or financial numbers.
-3. Do not claim certainty about the user's future.
-4. Do not recommend specific stocks, cryptocurrencies,
-   securities or high-risk investments.
-5. Focus on budgeting, spending behavior, saving,
-   cash-flow management and financial habits.
-6. If there is insufficient data, clearly say so.
-7. Keep the advice concise and actionable.
-8. Use Indian Rupee formatting when mentioning money.
-9. Do not expose private implementation details,
-   database information or API information.
+            savingsAdvice,
 
-Analyze:
+            actionPlan,
+        };
 
-- Overall financial health
-- Spending behavior
-- Budget problems
-- Savings progress
-- The most important actions the user should take
-
-Return ONLY valid JSON matching the requested structure.
-
-FINANCIAL DATA:
-
-${JSON.stringify(financialContext, null, 2)}
-`;
-
-        /*
-         * Gemini
-         */
-        const response =
-            await ai.models.generateContent({
-                model: "gemini-3.6-flash",
-
-                contents: prompt,
-
-                config: {
-                    responseMimeType:
-                        "application/json",
-
-                    responseSchema: {
-                        type: "object",
-
-                        properties: {
-                            healthScore: {
-                                type: "number",
-                            },
-
-                            healthSummary: {
-                                type: "string",
-                            },
-
-                            keyObservations: {
-                                type: "array",
-
-                                items: {
-                                    type: "string",
-                                },
-                            },
-
-                            warnings: {
-                                type: "array",
-
-                                items: {
-                                    type: "string",
-                                },
-                            },
-
-                            savingsAdvice: {
-                                type: "string",
-                            },
-
-                            actionPlan: {
-                                type: "array",
-
-                                items: {
-                                    type: "string",
-                                },
-                            },
-                        },
-
-                        required: [
-                            "healthScore",
-                            "healthSummary",
-                            "keyObservations",
-                            "warnings",
-                            "savingsAdvice",
-                            "actionPlan",
-                        ],
-                    },
-                },
-            });
-
-        const aiText = response.text;
-
-        if (!aiText) {
-            throw new Error(
-                "Gemini returned an empty response."
-            );
-        }
-
-        let aiInsights;
-
-        try {
-            aiInsights =
-                JSON.parse(aiText);
-        } catch {
-            console.error(
-                "Invalid Gemini JSON:",
-                aiText
-            );
-
-            throw new Error(
-                "Gemini returned invalid JSON."
-            );
-        }
-
-        /*
-         * Final response
-         */
         return NextResponse.json({
             success: true,
 
             context: financialContext,
 
-            insights: aiInsights,
+            insights,
         });
     } catch (error) {
-        console.error("AI Advisor Error:", error);
+        console.error(
+            "AI Advisor Error:",
+            error
+        );
 
         return NextResponse.json(
             {
                 success: false,
-
                 message:
-                    error instanceof Error
-                        ? error.message
-                        : "Unable to generate AI financial insights right now.",
+                    "Unable to load your financial analysis right now.",
             },
             { status: 500 }
         );
     }
+}
+
+function formatCurrency(
+    value: number
+) {
+    return `₹${Number(value).toLocaleString(
+        "en-IN",
+        {
+            maximumFractionDigits: 0,
+        }
+    )}`;
 }
