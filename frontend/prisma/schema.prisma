@@ -22,6 +22,10 @@ model User {
   updatedAt   DateTime @default(now()) @updatedAt
 
   transactions Transaction[]
+  budgets     Budget[]
+  savingsGoals SavingsGoal[]
+  aiUsage AiUsage?
+  
 }
 
 model Transaction {
@@ -39,7 +43,73 @@ model Transaction {
   userId      String
   user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+model Budget {
+  id          String   @id @default(cuid())
+
+  category    String
+  amount      Float
+  month       DateTime
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId      String
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category, month])
+  @@index([userId, month])
+}
 enum TransactionType {
   INCOME
   EXPENSE
+}
+model SavingsGoal {
+  id          String   @id @default(cuid())
+
+  name        String
+  targetAmount Float
+  deadline    DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId      String
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  entries     SavingsEntry[]
+}
+
+model SavingsEntry {
+  id          String   @id @default(cuid())
+
+  amount      Float
+  type        SavingsEntryType
+  description String?
+  date        DateTime
+
+  createdAt   DateTime @default(now())
+
+  goalId      String
+  goal        SavingsGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, date])
+}
+
+enum SavingsEntryType {
+  DEPOSIT
+  WITHDRAWAL
+}
+model AiUsage {
+  id        String   @id @default(cuid())
+
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  date      DateTime
+  questions Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
 }

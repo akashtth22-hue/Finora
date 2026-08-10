@@ -54,3 +54,23 @@ export type User = Prisma.UserModel
  * 
  */
 export type Transaction = Prisma.TransactionModel
+/**
+ * Model Budget
+ * 
+ */
+export type Budget = Prisma.BudgetModel
+/**
+ * Model SavingsGoal
+ * 
+ */
+export type SavingsGoal = Prisma.SavingsGoalModel
+/**
+ * Model SavingsEntry
+ * 
+ */
+export type SavingsEntry = Prisma.SavingsEntryModel
+/**
+ * Model AiUsage
+ * 
+ */
+export type AiUsage = Prisma.AiUsageModel

@@ -10,4 +10,8 @@
  */
 export type * from './models/User'
 export type * from './models/Transaction'
+export type * from './models/Budget'
+export type * from './models/SavingsGoal'
+export type * from './models/SavingsEntry'
+export type * from './models/AiUsage'
 export type * from './commonInputTypes'

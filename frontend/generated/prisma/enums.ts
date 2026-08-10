@@ -15,3 +15,11 @@ export const TransactionType = {
 } as const
 
 export type TransactionType = (typeof TransactionType)[keyof typeof TransactionType]
+
+
+export const SavingsEntryType = {
+  DEPOSIT: 'DEPOSIT',
+  WITHDRAWAL: 'WITHDRAWAL'
+} as const
+
+export type SavingsEntryType = (typeof SavingsEntryType)[keyof typeof SavingsEntryType]

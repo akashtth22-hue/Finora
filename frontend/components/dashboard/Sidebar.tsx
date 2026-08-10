@@ -122,7 +122,10 @@ export default function Sidebar({
           <div className="space-y-2 border-t border-gray-200 p-4">
 
             {/* Settings */}
-            <button className="group/item flex h-12 min-w-[224px] items-center gap-4 rounded-xl px-3 text-gray-700 transition-all duration-200 hover:bg-gray-100">
+            <Link
+              href="/settings"
+              className="group/item flex h-12 min-w-[224px] items-center gap-4 rounded-xl px-3 text-gray-700 transition-all duration-200 hover:bg-gray-100"
+            >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
                 <Settings size={22} />
               </div>
@@ -130,7 +133,7 @@ export default function Sidebar({
               <span className="-translate-x-2 whitespace-nowrap font-medium opacity-0 transition-all duration-300 group-hover/sidebar:translate-x-0 group-hover/sidebar:opacity-100">
                 Settings
               </span>
-            </button>
+            </Link>
 
             {/* Logout */}
             <button className="group/item flex h-12 min-w-[224px] items-center gap-4 rounded-xl px-3 text-red-600 transition-all duration-200 hover:bg-red-50">
@@ -211,10 +214,14 @@ export default function Sidebar({
             {/* Mobile Bottom Actions */}
             <div className="space-y-2 border-t border-gray-200 p-4">
 
-              <button className="flex w-full items-center gap-4 rounded-xl px-4 py-3 text-gray-700 transition hover:bg-gray-100">
+              <Link
+                href="/settings"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex w-full items-center gap-4 rounded-xl px-4 py-3 text-gray-700 transition hover:bg-gray-100"
+              >
                 <Settings size={21} />
                 Settings
-              </button>
+              </Link>
 
               <button className="flex w-full items-center gap-4 rounded-xl px-4 py-3 text-red-600 transition hover:bg-red-50">
                 <LogOut size={21} />
