@@ -3,188 +3,303 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 type Params = Promise<{
-  id: string;
+    id: string;
 }>;
 
+/* ================= UPDATE SAVINGS GOAL ================= */
+
 export async function PUT(
-  req: NextRequest,
-  { params }: { params: Params }
+    req: NextRequest,
+    { params }: { params: Params }
 ) {
-  try {
-    const user = await getCurrentUser();
+    try {
+        const user =
+            await getCurrentUser();
 
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized",
-        },
-        { status: 401 }
-      );
-    }
+        if (!user) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "Unauthorized",
+                },
+                { status: 401 }
+            );
+        }
 
-    const { id } = await params;
+        const { id } = await params;
 
-    const body = await req.json();
+        if (!id) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "Savings goal ID is required.",
+                },
+                { status: 400 }
+            );
+        }
 
-    const {
-      name,
-      targetAmount,
-      deadline,
-    } = body;
+        /* ================= OWNERSHIP CHECK ================= */
 
-    if (!name || !targetAmount) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Goal name and target amount are required.",
-        },
-        { status: 400 }
-      );
-    }
+        const existingGoal =
+            await prisma.savingsGoal.findFirst(
+                {
+                    where: {
+                        id,
+                        userId: user.id,
+                    },
+                }
+            );
 
-    const numericTargetAmount =
-      Number(targetAmount);
+        if (!existingGoal) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "Savings goal not found.",
+                },
+                { status: 404 }
+            );
+        }
 
-    if (
-      !Number.isFinite(numericTargetAmount) ||
-      numericTargetAmount <= 0
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Target amount must be greater than zero.",
-        },
-        { status: 400 }
-      );
-    }
+        /* ================= READ BODY ================= */
 
-    let deadlineDate: Date | null = null;
+        const body =
+            await req.json();
 
-    if (deadline) {
-      const parsedDeadline = new Date(deadline);
+        const {
+            name,
+            targetAmount,
+            deadline,
+        } = body;
 
-      if (Number.isNaN(parsedDeadline.getTime())) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "Invalid deadline.",
-          },
-          { status: 400 }
+        /* ================= VALIDATION ================= */
+
+        if (
+            name === undefined ||
+            name === null ||
+            targetAmount ===
+                undefined ||
+            targetAmount === null
+        ) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "Goal name and target amount are required.",
+                },
+                { status: 400 }
+            );
+        }
+
+        if (
+            typeof name !== "string" ||
+            !name.trim()
+        ) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "Goal name is required.",
+                },
+                { status: 400 }
+            );
+        }
+
+        const numericTargetAmount =
+            Number(targetAmount);
+
+        if (
+            !Number.isFinite(
+                numericTargetAmount
+            ) ||
+            numericTargetAmount <= 0
+        ) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "Target amount must be a valid number greater than zero.",
+                },
+                { status: 400 }
+            );
+        }
+
+        /* ================= DEADLINE ================= */
+
+        let deadlineDate:
+            | Date
+            | null = null;
+
+        if (
+            deadline !==
+                undefined &&
+            deadline !== null &&
+            deadline !== ""
+        ) {
+            if (
+                typeof deadline !==
+                "string"
+            ) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message:
+                            "Invalid deadline.",
+                    },
+                    { status: 400 }
+                );
+            }
+
+            const parsedDeadline =
+                new Date(deadline);
+
+            if (
+                Number.isNaN(
+                    parsedDeadline.getTime()
+                )
+            ) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message:
+                            "Invalid deadline.",
+                    },
+                    { status: 400 }
+                );
+            }
+
+            deadlineDate =
+                parsedDeadline;
+        }
+
+        /* ================= UPDATE ================= */
+
+        const goal =
+            await prisma.savingsGoal.update({
+                where: {
+                    id: existingGoal.id,
+                },
+
+                data: {
+                    name:
+                        name.trim(),
+
+                    targetAmount:
+                        numericTargetAmount,
+
+                    deadline:
+                        deadlineDate,
+                },
+            });
+
+        return NextResponse.json({
+            success: true,
+            message:
+                "Savings goal updated successfully.",
+            goal,
+        });
+    } catch (error) {
+        console.error(
+            "Update Savings Goal Error:",
+            error
         );
-      }
 
-      deadlineDate = parsedDeadline;
+        return NextResponse.json(
+            {
+                success: false,
+                message:
+                    "Internal Server Error",
+            },
+            { status: 500 }
+        );
     }
-
-    const existingGoal =
-      await prisma.savingsGoal.findFirst({
-        where: {
-          id,
-          userId: user.id,
-        },
-      });
-
-    if (!existingGoal) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Savings goal not found.",
-        },
-        { status: 404 }
-      );
-    }
-
-    const goal =
-      await prisma.savingsGoal.update({
-        where: {
-          id,
-        },
-        data: {
-          name: name.trim(),
-          targetAmount: numericTargetAmount,
-          deadline: deadlineDate,
-        },
-      });
-
-    return NextResponse.json({
-      success: true,
-      message:
-        "Savings goal updated successfully.",
-      goal,
-    });
-  } catch (error) {
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Internal Server Error",
-      },
-      { status: 500 }
-    );
-  }
 }
 
+/* ================= DELETE SAVINGS GOAL ================= */
+
 export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Params }
+    req: NextRequest,
+    { params }: { params: Params }
 ) {
-  try {
-    const user = await getCurrentUser();
+    try {
+        const user =
+            await getCurrentUser();
 
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized",
-        },
-        { status: 401 }
-      );
+        if (!user) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "Unauthorized",
+                },
+                { status: 401 }
+            );
+        }
+
+        const { id } = await params;
+
+        if (!id) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "Savings goal ID is required.",
+                },
+                { status: 400 }
+            );
+        }
+
+        /* ================= OWNERSHIP CHECK ================= */
+
+        const existingGoal =
+            await prisma.savingsGoal.findFirst(
+                {
+                    where: {
+                        id,
+                        userId: user.id,
+                    },
+                }
+            );
+
+        if (!existingGoal) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "Savings goal not found.",
+                },
+                { status: 404 }
+            );
+        }
+
+        /* ================= DELETE ================= */
+
+        await prisma.savingsGoal.delete({
+            where: {
+                id: existingGoal.id,
+            },
+        });
+
+        return NextResponse.json({
+            success: true,
+            message:
+                "Savings goal deleted successfully.",
+        });
+    } catch (error) {
+        console.error(
+            "Delete Savings Goal Error:",
+            error
+        );
+
+        return NextResponse.json(
+            {
+                success: false,
+                message:
+                    "Internal Server Error",
+            },
+            { status: 500 }
+        );
     }
-
-    const { id } = await params;
-
-    const existingGoal =
-      await prisma.savingsGoal.findFirst({
-        where: {
-          id,
-          userId: user.id,
-        },
-      });
-
-    if (!existingGoal) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Savings goal not found.",
-        },
-        { status: 404 }
-      );
-    }
-
-    await prisma.savingsGoal.delete({
-      where: {
-        id,
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      message:
-        "Savings goal deleted successfully.",
-    });
-  } catch (error) {
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Internal Server Error",
-      },
-      { status: 500 }
-    );
-  }
 }

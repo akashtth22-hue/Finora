@@ -4,65 +4,94 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
     try {
-        const user = await getCurrentUser();
+        const user =
+            await getCurrentUser();
 
         if (!user) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Unauthorized",
+                    message:
+                        "Unauthorized",
                 },
                 { status: 401 }
             );
         }
 
+        /*
+         * Only retrieve transactions
+         * belonging to the authenticated user.
+         */
         const transactions =
-            await prisma.transaction.findMany({
-                where: {
-                    userId: user.id,
-                },
-                orderBy: {
-                    date: "asc",
-                },
-            });
+            await prisma.transaction.findMany(
+                {
+                    where: {
+                        userId: user.id,
+                    },
+
+                    orderBy: {
+                        date: "asc",
+                    },
+                }
+            );
+
+        /* ================= SEPARATE TRANSACTIONS ================= */
 
         const incomeTransactions =
             transactions.filter(
                 (transaction) =>
-                    transaction.type === "INCOME"
+                    transaction.type ===
+                    "INCOME"
             );
 
         const expenseTransactions =
             transactions.filter(
                 (transaction) =>
-                    transaction.type === "EXPENSE"
+                    transaction.type ===
+                    "EXPENSE"
             );
+
+        /* ================= TOTALS ================= */
 
         const totalIncome =
             incomeTransactions.reduce(
-                (total, transaction) =>
-                    total + Number(transaction.amount),
+                (
+                    total,
+                    transaction
+                ) =>
+                    total +
+                    Number(
+                        transaction.amount
+                    ),
                 0
             );
 
         const totalExpenses =
             expenseTransactions.reduce(
-                (total, transaction) =>
-                    total + Number(transaction.amount),
+                (
+                    total,
+                    transaction
+                ) =>
+                    total +
+                    Number(
+                        transaction.amount
+                    ),
                 0
             );
 
         const netCashFlow =
-            totalIncome - totalExpenses;
+            totalIncome -
+            totalExpenses;
 
         const savingsRate =
             totalIncome > 0
-                ? (netCashFlow / totalIncome) * 100
+                ? (netCashFlow /
+                      totalIncome) *
+                  100
                 : 0;
 
-        /*
-         * Expense breakdown by category
-         */
+        /* ================= CATEGORY BREAKDOWN ================= */
+
         const categoryMap: Record<
             string,
             number
@@ -73,33 +102,47 @@ export async function GET() {
                 const category =
                     transaction.category;
 
-                categoryMap[category] =
-                    (categoryMap[category] || 0) +
-                    Number(transaction.amount);
+                categoryMap[
+                    category
+                ] =
+                    (categoryMap[
+                        category
+                    ] || 0) +
+                    Number(
+                        transaction.amount
+                    );
             }
         );
 
-        const categoryBreakdown = Object.entries(
-            categoryMap
-        )
-            .map(([category, amount]) => ({
-                category,
-                amount,
-                percentage:
-                    totalExpenses > 0
-                        ? (amount /
-                              totalExpenses) *
-                          100
-                        : 0,
-            }))
-            .sort(
-                (a, b) =>
-                    b.amount - a.amount
-            );
+        const categoryBreakdown =
+            Object.entries(
+                categoryMap
+            )
+                .map(
+                    ([
+                        category,
+                        amount,
+                    ]) => ({
+                        category,
+                        amount,
 
-        /*
-         * Monthly income / expense data
-         */
+                        percentage:
+                            totalExpenses >
+                            0
+                                ? (amount /
+                                      totalExpenses) *
+                                  100
+                                : 0,
+                    })
+                )
+                .sort(
+                    (a, b) =>
+                        b.amount -
+                        a.amount
+                );
+
+        /* ================= MONTHLY DATA ================= */
+
         const monthlyMap: Record<
             string,
             {
@@ -111,14 +154,27 @@ export async function GET() {
         transactions.forEach(
             (transaction) => {
                 const date =
-                    new Date(transaction.date);
+                    new Date(
+                        transaction.date
+                    );
 
-                const monthKey = `${date.getFullYear()}-${String(
-                    date.getMonth() + 1
-                ).padStart(2, "0")}`;
+                const monthKey =
+                    `${date.getFullYear()}-${String(
+                        date.getMonth() +
+                            1
+                    ).padStart(
+                        2,
+                        "0"
+                    )}`;
 
-                if (!monthlyMap[monthKey]) {
-                    monthlyMap[monthKey] = {
+                if (
+                    !monthlyMap[
+                        monthKey
+                    ]
+                ) {
+                    monthlyMap[
+                        monthKey
+                    ] = {
                         income: 0,
                         expenses: 0,
                     };
@@ -130,47 +186,62 @@ export async function GET() {
                 ) {
                     monthlyMap[
                         monthKey
-                    ].income += Number(
-                        transaction.amount
-                    );
-                } else {
+                    ].income +=
+                        Number(
+                            transaction.amount
+                        );
+                } else if (
+                    transaction.type ===
+                    "EXPENSE"
+                ) {
                     monthlyMap[
                         monthKey
-                    ].expenses += Number(
-                        transaction.amount
-                    );
+                    ].expenses +=
+                        Number(
+                            transaction.amount
+                        );
                 }
             }
         );
 
-        const monthlyData = Object.entries(
-            monthlyMap
-        )
-            .map(
-                ([
-                    month,
-                    values,
-                ]) => ({
-                    month,
-                    income: values.income,
-                    expenses:
-                        values.expenses,
-                    net:
-                        values.income -
-                        values.expenses,
-                })
+        const monthlyData =
+            Object.entries(
+                monthlyMap
             )
-            .sort((a, b) =>
-                a.month.localeCompare(
-                    b.month
+                .map(
+                    ([
+                        month,
+                        values,
+                    ]) => ({
+                        month,
+
+                        income:
+                            values.income,
+
+                        expenses:
+                            values.expenses,
+
+                        net:
+                            values.income -
+                            values.expenses,
+                    })
                 )
+                .sort(
+                    (a, b) =>
+                        a.month.localeCompare(
+                            b.month
+                        )
+                );
+
+        /* ================= TOP CATEGORIES ================= */
+
+        const topCategories =
+            categoryBreakdown.slice(
+                0,
+                5
             );
 
-        /*
-         * Top spending categories
-         */
-        const topCategories =
-            categoryBreakdown.slice(0, 5);
+        /* ================= RESPONSE ================= */
 
         return NextResponse.json({
             success: true,
@@ -189,7 +260,10 @@ export async function GET() {
             monthlyData,
         });
     } catch (error) {
-        console.error(error);
+        console.error(
+            "Analytics API Error:",
+            error
+        );
 
         return NextResponse.json(
             {

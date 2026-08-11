@@ -1,83 +1,229 @@
 "use client";
 
 import {
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
+    ResponsiveContainer,
+    PieChart,
+    Pie,
+    Cell,
+    Tooltip,
 } from "recharts";
 
-const data = [
-  { name: "Food", value: 8000 },
-  { name: "Shopping", value: 5500 },
-  { name: "Transport", value: 3200 },
-  { name: "Bills", value: 4500 },
-  { name: "Entertainment", value: 2800 },
-];
-
 const COLORS = [
-  "#7C3AED",
-  "#A855F7",
-  "#EC4899",
-  "#F59E0B",
-  "#10B981",
+    "#7C3AED",
+    "#A855F7",
+    "#EC4899",
+    "#F59E0B",
+    "#10B981",
+    "#3B82F6",
+    "#6366F1",
+    "#14B8A6",
 ];
 
-export default function ExpenseChart() {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 className="mb-6 text-xl font-bold text-gray-900">
-        Expense Breakdown
-      </h2>
+type ExpenseItem = {
+    name: string;
+    value: number;
+    percentage: number;
+};
 
-      <div className="h-80">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              dataKey="value"
-              nameKey="name"
-              innerRadius={70}
-              outerRadius={110}
-              paddingAngle={4}
-            >
-              {data.map((entry, index) => (
-                <Cell
-                  key={index}
-                  fill={COLORS[index % COLORS.length]}
-                />
-              ))}
-            </Pie>
+type Props = {
+    data: ExpenseItem[];
+};
 
-            <Tooltip />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
+function formatCurrency(
+    value: number
+): string {
+    return `₹${Number(
+        value || 0
+    ).toLocaleString("en-IN", {
+        maximumFractionDigits: 2,
+    })}`;
+}
 
-      <div className="mt-6 space-y-3">
-        {data.map((item, index) => (
-          <div
-            key={item.name}
-            className="flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="h-3 w-3 rounded-full"
-                style={{
-                  backgroundColor: COLORS[index],
-                }}
-              />
+export default function ExpenseChart({
+    data,
+}: Props) {
+    const total = data.reduce(
+        (sum, item) =>
+            sum + Number(item.value || 0),
+        0
+    );
 
-              <span>{item.name}</span>
+    return (
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+
+            {/* ================= HEADER ================= */}
+
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <h2 className="text-xl font-bold text-gray-900">
+                        Expense by Category
+                    </h2>
+
+                    <p className="mt-1 text-sm text-gray-500">
+                        Current month
+                    </p>
+                </div>
+
+                <span className="shrink-0 rounded-xl border border-gray-200 px-3 py-2 text-xs text-gray-600">
+                    This Month
+                </span>
             </div>
 
-            <span className="font-semibold">
-              ₹{item.value.toLocaleString()}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+            {/* ================= EMPTY STATE ================= */}
+
+            {data.length === 0 ? (
+                <div className="flex h-[360px] items-center justify-center text-center">
+                    <div>
+                        <p className="font-semibold text-gray-700">
+                            No expenses yet
+                        </p>
+
+                        <p className="mt-1 text-sm text-gray-500">
+                            Add expenses to see your spending breakdown.
+                        </p>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    {/* ================= PIE CHART ================= */}
+
+                    <div className="relative mt-5 h-[250px]">
+
+                        <ResponsiveContainer
+                            width="100%"
+                            height="100%"
+                        >
+                            <PieChart>
+
+                                <Pie
+                                    data={data}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    innerRadius={65}
+                                    outerRadius={95}
+                                    paddingAngle={3}
+                                >
+                                    {data.map(
+                                        (
+                                            entry,
+                                            index
+                                        ) => (
+                                            <Cell
+                                                key={`${entry.name}-${index}`}
+                                                fill={
+                                                    COLORS[
+                                                        index %
+                                                            COLORS.length
+                                                    ]
+                                                }
+                                            />
+                                        )
+                                    )}
+                                </Pie>
+
+                                <Tooltip
+                                    formatter={(
+                                        value
+                                    ) =>
+                                        formatCurrency(
+                                            Number(
+                                                value
+                                            )
+                                        )
+                                    }
+                                />
+
+                            </PieChart>
+                        </ResponsiveContainer>
+
+                        {/* ================= CENTER TOTAL ================= */}
+
+                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                            <div className="text-center">
+
+                                <p className="text-2xl font-extrabold text-gray-900">
+                                    {formatCurrency(
+                                        total
+                                    )}
+                                </p>
+
+                                <p className="text-xs text-gray-500">
+                                    Total
+                                </p>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ================= CATEGORY LIST ================= */}
+
+                    <div className="mt-3 space-y-3">
+
+                        {data
+                            .slice(0, 6)
+                            .map(
+                                (
+                                    item,
+                                    index
+                                ) => (
+                                    <div
+                                        key={
+                                            item.name
+                                        }
+                                        className="flex items-center justify-between gap-3"
+                                    >
+
+                                        <div className="flex min-w-0 items-center gap-3">
+
+                                            <div
+                                                className="h-3 w-3 shrink-0 rounded-full"
+                                                style={{
+                                                    backgroundColor:
+                                                        COLORS[
+                                                            index %
+                                                                COLORS.length
+                                                        ],
+                                                }}
+                                            />
+
+                                            <span className="truncate text-sm text-gray-700">
+                                                {
+                                                    item.name
+                                                }
+                                            </span>
+
+                                        </div>
+
+                                        <div className="flex shrink-0 items-center gap-3">
+
+                                            <span className="text-xs text-gray-400">
+                                                {Number(
+                                                    item.percentage ||
+                                                        0
+                                                ).toFixed(
+                                                    0
+                                                )}
+                                                %
+                                            </span>
+
+                                            <span className="text-sm font-semibold text-gray-900">
+                                                {formatCurrency(
+                                                    Number(
+                                                        item.value ||
+                                                            0
+                                                    )
+                                                )}
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+                                )
+                            )}
+
+                    </div>
+                </>
+            )}
+        </div>
+    );
 }

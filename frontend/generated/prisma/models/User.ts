@@ -219,6 +219,7 @@ export type UserWhereInput = {
   savingsGoals?: Prisma.SavingsGoalListRelationFilter
   aiUsage?: Prisma.XOR<Prisma.AiUsageNullableScalarRelationFilter, Prisma.AiUsageWhereInput> | null
   notifications?: Prisma.NotificationListRelationFilter
+  aiConversations?: Prisma.AIConversationListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -236,6 +237,7 @@ export type UserOrderByWithRelationInput = {
   savingsGoals?: Prisma.SavingsGoalOrderByRelationAggregateInput
   aiUsage?: Prisma.AiUsageOrderByWithRelationInput
   notifications?: Prisma.NotificationOrderByRelationAggregateInput
+  aiConversations?: Prisma.AIConversationOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -256,6 +258,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   savingsGoals?: Prisma.SavingsGoalListRelationFilter
   aiUsage?: Prisma.XOR<Prisma.AiUsageNullableScalarRelationFilter, Prisma.AiUsageWhereInput> | null
   notifications?: Prisma.NotificationListRelationFilter
+  aiConversations?: Prisma.AIConversationListRelationFilter
 }, "id" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -303,6 +306,7 @@ export type UserCreateInput = {
   savingsGoals?: Prisma.SavingsGoalCreateNestedManyWithoutUserInput
   aiUsage?: Prisma.AiUsageCreateNestedOneWithoutUserInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  aiConversations?: Prisma.AIConversationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -320,6 +324,7 @@ export type UserUncheckedCreateInput = {
   savingsGoals?: Prisma.SavingsGoalUncheckedCreateNestedManyWithoutUserInput
   aiUsage?: Prisma.AiUsageUncheckedCreateNestedOneWithoutUserInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  aiConversations?: Prisma.AIConversationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -337,6 +342,7 @@ export type UserUpdateInput = {
   savingsGoals?: Prisma.SavingsGoalUpdateManyWithoutUserNestedInput
   aiUsage?: Prisma.AiUsageUpdateOneWithoutUserNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  aiConversations?: Prisma.AIConversationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -354,6 +360,7 @@ export type UserUncheckedUpdateInput = {
   savingsGoals?: Prisma.SavingsGoalUncheckedUpdateManyWithoutUserNestedInput
   aiUsage?: Prisma.AiUsageUncheckedUpdateOneWithoutUserNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  aiConversations?: Prisma.AIConversationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -519,6 +526,20 @@ export type UserUpdateOneRequiredWithoutNotificationsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutNotificationsInput, Prisma.UserUpdateWithoutNotificationsInput>, Prisma.UserUncheckedUpdateWithoutNotificationsInput>
 }
 
+export type UserCreateNestedOneWithoutAiConversationsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutAiConversationsInput, Prisma.UserUncheckedCreateWithoutAiConversationsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutAiConversationsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutAiConversationsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutAiConversationsInput, Prisma.UserUncheckedCreateWithoutAiConversationsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutAiConversationsInput
+  upsert?: Prisma.UserUpsertWithoutAiConversationsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutAiConversationsInput, Prisma.UserUpdateWithoutAiConversationsInput>, Prisma.UserUncheckedUpdateWithoutAiConversationsInput>
+}
+
 export type UserCreateWithoutTransactionsInput = {
   id?: string
   fullName: string
@@ -533,6 +554,7 @@ export type UserCreateWithoutTransactionsInput = {
   savingsGoals?: Prisma.SavingsGoalCreateNestedManyWithoutUserInput
   aiUsage?: Prisma.AiUsageCreateNestedOneWithoutUserInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  aiConversations?: Prisma.AIConversationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutTransactionsInput = {
@@ -549,6 +571,7 @@ export type UserUncheckedCreateWithoutTransactionsInput = {
   savingsGoals?: Prisma.SavingsGoalUncheckedCreateNestedManyWithoutUserInput
   aiUsage?: Prisma.AiUsageUncheckedCreateNestedOneWithoutUserInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  aiConversations?: Prisma.AIConversationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutTransactionsInput = {
@@ -581,6 +604,7 @@ export type UserUpdateWithoutTransactionsInput = {
   savingsGoals?: Prisma.SavingsGoalUpdateManyWithoutUserNestedInput
   aiUsage?: Prisma.AiUsageUpdateOneWithoutUserNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  aiConversations?: Prisma.AIConversationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTransactionsInput = {
@@ -597,6 +621,7 @@ export type UserUncheckedUpdateWithoutTransactionsInput = {
   savingsGoals?: Prisma.SavingsGoalUncheckedUpdateManyWithoutUserNestedInput
   aiUsage?: Prisma.AiUsageUncheckedUpdateOneWithoutUserNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  aiConversations?: Prisma.AIConversationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutBudgetsInput = {
@@ -613,6 +638,7 @@ export type UserCreateWithoutBudgetsInput = {
   savingsGoals?: Prisma.SavingsGoalCreateNestedManyWithoutUserInput
   aiUsage?: Prisma.AiUsageCreateNestedOneWithoutUserInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  aiConversations?: Prisma.AIConversationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutBudgetsInput = {
@@ -629,6 +655,7 @@ export type UserUncheckedCreateWithoutBudgetsInput = {
   savingsGoals?: Prisma.SavingsGoalUncheckedCreateNestedManyWithoutUserInput
   aiUsage?: Prisma.AiUsageUncheckedCreateNestedOneWithoutUserInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  aiConversations?: Prisma.AIConversationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutBudgetsInput = {
@@ -661,6 +688,7 @@ export type UserUpdateWithoutBudgetsInput = {
   savingsGoals?: Prisma.SavingsGoalUpdateManyWithoutUserNestedInput
   aiUsage?: Prisma.AiUsageUpdateOneWithoutUserNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  aiConversations?: Prisma.AIConversationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutBudgetsInput = {
@@ -677,6 +705,7 @@ export type UserUncheckedUpdateWithoutBudgetsInput = {
   savingsGoals?: Prisma.SavingsGoalUncheckedUpdateManyWithoutUserNestedInput
   aiUsage?: Prisma.AiUsageUncheckedUpdateOneWithoutUserNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  aiConversations?: Prisma.AIConversationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSavingsGoalsInput = {
@@ -693,6 +722,7 @@ export type UserCreateWithoutSavingsGoalsInput = {
   budgets?: Prisma.BudgetCreateNestedManyWithoutUserInput
   aiUsage?: Prisma.AiUsageCreateNestedOneWithoutUserInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  aiConversations?: Prisma.AIConversationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSavingsGoalsInput = {
@@ -709,6 +739,7 @@ export type UserUncheckedCreateWithoutSavingsGoalsInput = {
   budgets?: Prisma.BudgetUncheckedCreateNestedManyWithoutUserInput
   aiUsage?: Prisma.AiUsageUncheckedCreateNestedOneWithoutUserInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  aiConversations?: Prisma.AIConversationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSavingsGoalsInput = {
@@ -741,6 +772,7 @@ export type UserUpdateWithoutSavingsGoalsInput = {
   budgets?: Prisma.BudgetUpdateManyWithoutUserNestedInput
   aiUsage?: Prisma.AiUsageUpdateOneWithoutUserNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  aiConversations?: Prisma.AIConversationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSavingsGoalsInput = {
@@ -757,6 +789,7 @@ export type UserUncheckedUpdateWithoutSavingsGoalsInput = {
   budgets?: Prisma.BudgetUncheckedUpdateManyWithoutUserNestedInput
   aiUsage?: Prisma.AiUsageUncheckedUpdateOneWithoutUserNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  aiConversations?: Prisma.AIConversationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAiUsageInput = {
@@ -773,6 +806,7 @@ export type UserCreateWithoutAiUsageInput = {
   budgets?: Prisma.BudgetCreateNestedManyWithoutUserInput
   savingsGoals?: Prisma.SavingsGoalCreateNestedManyWithoutUserInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  aiConversations?: Prisma.AIConversationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAiUsageInput = {
@@ -789,6 +823,7 @@ export type UserUncheckedCreateWithoutAiUsageInput = {
   budgets?: Prisma.BudgetUncheckedCreateNestedManyWithoutUserInput
   savingsGoals?: Prisma.SavingsGoalUncheckedCreateNestedManyWithoutUserInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  aiConversations?: Prisma.AIConversationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAiUsageInput = {
@@ -821,6 +856,7 @@ export type UserUpdateWithoutAiUsageInput = {
   budgets?: Prisma.BudgetUpdateManyWithoutUserNestedInput
   savingsGoals?: Prisma.SavingsGoalUpdateManyWithoutUserNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  aiConversations?: Prisma.AIConversationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAiUsageInput = {
@@ -837,6 +873,7 @@ export type UserUncheckedUpdateWithoutAiUsageInput = {
   budgets?: Prisma.BudgetUncheckedUpdateManyWithoutUserNestedInput
   savingsGoals?: Prisma.SavingsGoalUncheckedUpdateManyWithoutUserNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  aiConversations?: Prisma.AIConversationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutNotificationsInput = {
@@ -853,6 +890,7 @@ export type UserCreateWithoutNotificationsInput = {
   budgets?: Prisma.BudgetCreateNestedManyWithoutUserInput
   savingsGoals?: Prisma.SavingsGoalCreateNestedManyWithoutUserInput
   aiUsage?: Prisma.AiUsageCreateNestedOneWithoutUserInput
+  aiConversations?: Prisma.AIConversationCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutNotificationsInput = {
@@ -869,6 +907,7 @@ export type UserUncheckedCreateWithoutNotificationsInput = {
   budgets?: Prisma.BudgetUncheckedCreateNestedManyWithoutUserInput
   savingsGoals?: Prisma.SavingsGoalUncheckedCreateNestedManyWithoutUserInput
   aiUsage?: Prisma.AiUsageUncheckedCreateNestedOneWithoutUserInput
+  aiConversations?: Prisma.AIConversationUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutNotificationsInput = {
@@ -901,6 +940,7 @@ export type UserUpdateWithoutNotificationsInput = {
   budgets?: Prisma.BudgetUpdateManyWithoutUserNestedInput
   savingsGoals?: Prisma.SavingsGoalUpdateManyWithoutUserNestedInput
   aiUsage?: Prisma.AiUsageUpdateOneWithoutUserNestedInput
+  aiConversations?: Prisma.AIConversationUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutNotificationsInput = {
@@ -917,6 +957,91 @@ export type UserUncheckedUpdateWithoutNotificationsInput = {
   budgets?: Prisma.BudgetUncheckedUpdateManyWithoutUserNestedInput
   savingsGoals?: Prisma.SavingsGoalUncheckedUpdateManyWithoutUserNestedInput
   aiUsage?: Prisma.AiUsageUncheckedUpdateOneWithoutUserNestedInput
+  aiConversations?: Prisma.AIConversationUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutAiConversationsInput = {
+  id?: string
+  fullName: string
+  email: string
+  password: string
+  image?: string | null
+  phone?: string | null
+  isVerified?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  transactions?: Prisma.TransactionCreateNestedManyWithoutUserInput
+  budgets?: Prisma.BudgetCreateNestedManyWithoutUserInput
+  savingsGoals?: Prisma.SavingsGoalCreateNestedManyWithoutUserInput
+  aiUsage?: Prisma.AiUsageCreateNestedOneWithoutUserInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutAiConversationsInput = {
+  id?: string
+  fullName: string
+  email: string
+  password: string
+  image?: string | null
+  phone?: string | null
+  isVerified?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutUserInput
+  budgets?: Prisma.BudgetUncheckedCreateNestedManyWithoutUserInput
+  savingsGoals?: Prisma.SavingsGoalUncheckedCreateNestedManyWithoutUserInput
+  aiUsage?: Prisma.AiUsageUncheckedCreateNestedOneWithoutUserInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutAiConversationsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutAiConversationsInput, Prisma.UserUncheckedCreateWithoutAiConversationsInput>
+}
+
+export type UserUpsertWithoutAiConversationsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutAiConversationsInput, Prisma.UserUncheckedUpdateWithoutAiConversationsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutAiConversationsInput, Prisma.UserUncheckedCreateWithoutAiConversationsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutAiConversationsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutAiConversationsInput, Prisma.UserUncheckedUpdateWithoutAiConversationsInput>
+}
+
+export type UserUpdateWithoutAiConversationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  transactions?: Prisma.TransactionUpdateManyWithoutUserNestedInput
+  budgets?: Prisma.BudgetUpdateManyWithoutUserNestedInput
+  savingsGoals?: Prisma.SavingsGoalUpdateManyWithoutUserNestedInput
+  aiUsage?: Prisma.AiUsageUpdateOneWithoutUserNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutAiConversationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  fullName?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  transactions?: Prisma.TransactionUncheckedUpdateManyWithoutUserNestedInput
+  budgets?: Prisma.BudgetUncheckedUpdateManyWithoutUserNestedInput
+  savingsGoals?: Prisma.SavingsGoalUncheckedUpdateManyWithoutUserNestedInput
+  aiUsage?: Prisma.AiUsageUncheckedUpdateOneWithoutUserNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -929,6 +1054,7 @@ export type UserCountOutputType = {
   budgets: number
   savingsGoals: number
   notifications: number
+  aiConversations: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -936,6 +1062,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   budgets?: boolean | UserCountOutputTypeCountBudgetsArgs
   savingsGoals?: boolean | UserCountOutputTypeCountSavingsGoalsArgs
   notifications?: boolean | UserCountOutputTypeCountNotificationsArgs
+  aiConversations?: boolean | UserCountOutputTypeCountAiConversationsArgs
 }
 
 /**
@@ -976,6 +1103,13 @@ export type UserCountOutputTypeCountNotificationsArgs<ExtArgs extends runtime.Ty
   where?: Prisma.NotificationWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountAiConversationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AIConversationWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -992,6 +1126,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   savingsGoals?: boolean | Prisma.User$savingsGoalsArgs<ExtArgs>
   aiUsage?: boolean | Prisma.User$aiUsageArgs<ExtArgs>
   notifications?: boolean | Prisma.User$notificationsArgs<ExtArgs>
+  aiConversations?: boolean | Prisma.User$aiConversationsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1038,6 +1173,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   savingsGoals?: boolean | Prisma.User$savingsGoalsArgs<ExtArgs>
   aiUsage?: boolean | Prisma.User$aiUsageArgs<ExtArgs>
   notifications?: boolean | Prisma.User$notificationsArgs<ExtArgs>
+  aiConversations?: boolean | Prisma.User$aiConversationsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1051,6 +1187,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     savingsGoals: Prisma.$SavingsGoalPayload<ExtArgs>[]
     aiUsage: Prisma.$AiUsagePayload<ExtArgs> | null
     notifications: Prisma.$NotificationPayload<ExtArgs>[]
+    aiConversations: Prisma.$AIConversationPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1461,6 +1598,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   savingsGoals<T extends Prisma.User$savingsGoalsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$savingsGoalsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SavingsGoalPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   aiUsage<T extends Prisma.User$aiUsageArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$aiUsageArgs<ExtArgs>>): Prisma.Prisma__AiUsageClient<runtime.Types.Result.GetResult<Prisma.$AiUsagePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   notifications<T extends Prisma.User$notificationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$notificationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotificationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  aiConversations<T extends Prisma.User$aiConversationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$aiConversationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AIConversationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1999,6 +2137,30 @@ export type User$notificationsArgs<ExtArgs extends runtime.Types.Extensions.Inte
   take?: number
   skip?: number
   distinct?: Prisma.NotificationScalarFieldEnum | Prisma.NotificationScalarFieldEnum[]
+}
+
+/**
+ * User.aiConversations
+ */
+export type User$aiConversationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AIConversation
+   */
+  select?: Prisma.AIConversationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AIConversation
+   */
+  omit?: Prisma.AIConversationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AIConversationInclude<ExtArgs> | null
+  where?: Prisma.AIConversationWhereInput
+  orderBy?: Prisma.AIConversationOrderByWithRelationInput | Prisma.AIConversationOrderByWithRelationInput[]
+  cursor?: Prisma.AIConversationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.AIConversationScalarFieldEnum | Prisma.AIConversationScalarFieldEnum[]
 }
 
 /**

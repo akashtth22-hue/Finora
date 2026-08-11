@@ -20,26 +20,22 @@ export async function PATCH(request: Request) {
         const body = await request.json();
 
         const currentPassword =
-            typeof body.currentPassword ===
-            "string"
+            typeof body.currentPassword === "string"
                 ? body.currentPassword
                 : "";
 
         const newPassword =
-            typeof body.newPassword ===
-            "string"
+            typeof body.newPassword === "string"
                 ? body.newPassword
                 : "";
 
         const confirmPassword =
-            typeof body.confirmPassword ===
-            "string"
+            typeof body.confirmPassword === "string"
                 ? body.confirmPassword
                 : "";
 
-        /*
-         * Basic validation
-         */
+        /* ================= VALIDATION ================= */
+
         if (
             !currentPassword ||
             !newPassword ||
@@ -55,9 +51,41 @@ export async function PATCH(request: Request) {
             );
         }
 
-        /*
-         * Verify current password
-         */
+        if (newPassword.length < 8) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "New password must be at least 8 characters long.",
+                },
+                { status: 400 }
+            );
+        }
+
+        if (newPassword.length > 128) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "New password is too long.",
+                },
+                { status: 400 }
+            );
+        }
+
+        if (newPassword !== confirmPassword) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "New passwords do not match.",
+                },
+                { status: 400 }
+            );
+        }
+
+        /* ================= CURRENT PASSWORD ================= */
+
         const isCurrentPasswordValid =
             await bcrypt.compare(
                 currentPassword,
@@ -75,9 +103,8 @@ export async function PATCH(request: Request) {
             );
         }
 
-        /*
-         * Prevent using the same password
-         */
+        /* ================= SAME PASSWORD ================= */
+
         const isSamePassword =
             await bcrypt.compare(
                 newPassword,
@@ -95,58 +122,22 @@ export async function PATCH(request: Request) {
             );
         }
 
-        /*
-         * Password strength
-         */
-        if (newPassword.length < 8) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message:
-                        "New password must be at least 8 characters long.",
-                },
-                { status: 400 }
-            );
-        }
+        /* ================= HASH ================= */
 
-        /*
-         * Confirm password
-         */
-        if (
-            newPassword !==
-            confirmPassword
-        ) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message:
-                        "New passwords do not match.",
-                },
-                { status: 400 }
-            );
-        }
-
-        /*
-         * Hash the new password
-         */
         const hashedPassword =
             await bcrypt.hash(
                 newPassword,
                 12
             );
 
-        /*
-         * Update only the authenticated
-         * user's password.
-         */
+        /* ================= UPDATE ================= */
+
         await prisma.user.update({
             where: {
                 id: user.id,
             },
-
             data: {
-                password:
-                    hashedPassword,
+                password: hashedPassword,
             },
         });
 

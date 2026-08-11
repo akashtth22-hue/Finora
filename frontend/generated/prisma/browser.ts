@@ -52,3 +52,13 @@ export type AiUsage = Prisma.AiUsageModel
  * 
  */
 export type Notification = Prisma.NotificationModel
+/**
+ * Model AIConversation
+ * 
+ */
+export type AIConversation = Prisma.AIConversationModel
+/**
+ * Model AIMessage
+ * 
+ */
+export type AIMessage = Prisma.AIMessageModel

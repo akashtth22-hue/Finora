@@ -226,19 +226,29 @@ export default function Navbar({
     }
 
     return (
-        <header className="border-b border-gray-200 bg-white">
-
-            <div className="flex min-h-[80px] items-center gap-3 px-4 sm:px-6">
+        <header
+            className="
+                sticky
+                top-0
+                z-30
+                h-20
+                w-full
+                shrink-0
+                border-b
+                border-gray-200
+                bg-white
+            "
+        >
+            <div className="flex h-full w-full items-center gap-3 px-4 sm:px-6">
 
                 {/* ================= MOBILE MENU ================= */}
 
                 <button
+                    type="button"
                     onClick={() =>
-                        setMobileMenuOpen(
-                            true
-                        )
+                        setMobileMenuOpen(true)
                     }
-                    className="rounded-xl border border-gray-200 p-2.5 text-gray-700 hover:bg-gray-50 lg:hidden"
+                    className="rounded-xl border border-gray-200 p-2.5 text-gray-700 transition hover:bg-gray-50 lg:hidden"
                     aria-label="Open menu"
                 >
                     <Menu size={22} />
@@ -247,7 +257,6 @@ export default function Navbar({
                 {/* ================= WELCOME ================= */}
 
                 <div className="min-w-0 flex-1">
-
                     <h1 className="truncate text-lg font-bold text-gray-900 sm:text-2xl">
                         Welcome Back 👋
                     </h1>
@@ -255,12 +264,11 @@ export default function Navbar({
                     <p className="mt-1 hidden text-sm text-gray-500 sm:block">
                         Here's your financial overview today.
                     </p>
-
                 </div>
 
                 {/* ================= RIGHT ================= */}
 
-                <div className="flex items-center gap-2 sm:gap-4">
+                <div className="flex shrink-0 items-center gap-2 sm:gap-4">
 
                     {/* ================= NOTIFICATIONS ================= */}
 
@@ -268,7 +276,6 @@ export default function Navbar({
                         ref={notificationRef}
                         className="relative"
                     >
-
                         <button
                             type="button"
                             onClick={() =>
@@ -283,32 +290,26 @@ export default function Navbar({
                                 isOpen
                             }
                         >
-
                             <Bell size={20} />
 
-                            {unreadCount >
-                                0 && (
+                            {unreadCount > 0 && (
                                 <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                                    {unreadCount >
-                                    9
+                                    {unreadCount > 9
                                         ? "9+"
                                         : unreadCount}
                                 </span>
                             )}
-
                         </button>
 
                         {/* ================= NOTIFICATION DROPDOWN ================= */}
 
                         {isOpen && (
-                            <div className="absolute right-0 top-14 z-50 w-[350px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl sm:w-[390px]">
+                            <div className="absolute right-0 top-[60px] z-50 w-[350px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl sm:w-[390px]">
 
                                 {/* Header */}
 
                                 <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-
                                     <div>
-
                                         <h2 className="font-bold text-gray-900">
                                             Notifications
                                         </h2>
@@ -316,7 +317,6 @@ export default function Navbar({
                                         <p className="mt-0.5 text-xs text-gray-500">
                                             Stay on top of your finances.
                                         </p>
-
                                     </div>
 
                                     <button
@@ -329,13 +329,8 @@ export default function Navbar({
                                         className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
                                         aria-label="Close notifications"
                                     >
-                                        <X
-                                            size={
-                                                18
-                                            }
-                                        />
+                                        <X size={18} />
                                     </button>
-
                                 </div>
 
                                 {/* Content */}
@@ -344,24 +339,17 @@ export default function Navbar({
 
                                     {isLoading ? (
                                         <div className="flex flex-col items-center justify-center px-5 py-12 text-center">
-
                                             <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
 
                                             <p className="mt-4 text-sm text-gray-500">
                                                 Checking your finances...
                                             </p>
-
                                         </div>
                                     ) : notifications.length ===
                                       0 ? (
                                         <div className="px-5 py-12 text-center">
-
                                             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600">
-                                                <Bell
-                                                    size={
-                                                        22
-                                                    }
-                                                />
+                                                <Bell size={22} />
                                             </div>
 
                                             <h3 className="mt-4 font-semibold text-gray-900">
@@ -371,11 +359,9 @@ export default function Navbar({
                                             <p className="mt-1 text-sm text-gray-500">
                                                 No important financial alerts right now.
                                             </p>
-
                                         </div>
                                     ) : (
                                         <div>
-
                                             {notifications.map(
                                                 (
                                                     notification
@@ -390,17 +376,13 @@ export default function Navbar({
                                                                 : ""
                                                         }`}
                                                     >
-
                                                         <div className="flex gap-3">
-
                                                             {getNotificationIcon(
                                                                 notification.type
                                                             )}
 
                                                             <div className="min-w-0 flex-1">
-
                                                                 <div className="flex items-start justify-between gap-3">
-
                                                                     <h3 className="text-sm font-semibold text-gray-900">
                                                                         {
                                                                             notification.title
@@ -410,7 +392,6 @@ export default function Navbar({
                                                                     {!notification.isRead && (
                                                                         <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-purple-600" />
                                                                     )}
-
                                                                 </div>
 
                                                                 <p className="mt-1 text-sm leading-5 text-gray-600">
@@ -424,18 +405,13 @@ export default function Navbar({
                                                                         notification.createdAt
                                                                     )}
                                                                 </p>
-
                                                             </div>
-
                                                         </div>
-
                                                     </div>
                                                 )
                                             )}
-
                                         </div>
                                     )}
-
                                 </div>
 
                                 {/* Footer */}
@@ -443,7 +419,6 @@ export default function Navbar({
                                 {notifications.length >
                                     0 && (
                                     <div className="border-t border-gray-100 bg-gray-50 px-5 py-3">
-
                                         <button
                                             type="button"
                                             onClick={() =>
@@ -459,15 +434,13 @@ export default function Navbar({
                                                     isLoading
                                                 }
                                             />
+
                                             Refresh notifications
                                         </button>
-
                                     </div>
                                 )}
-
                             </div>
                         )}
-
                     </div>
 
                     {/* ================= DESKTOP PROFILE ================= */}
@@ -477,13 +450,11 @@ export default function Navbar({
                         className="hidden items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-gray-50 sm:flex"
                         aria-label="Open profile settings"
                     >
-
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-600 text-sm font-bold text-white">
                             A
                         </div>
 
                         <div>
-
                             <h3 className="text-sm font-semibold text-gray-900">
                                 Akash
                             </h3>
@@ -491,9 +462,7 @@ export default function Navbar({
                             <p className="text-xs text-gray-500">
                                 Premium User
                             </p>
-
                         </div>
-
                     </Link>
 
                     {/* ================= MOBILE AVATAR ================= */}
@@ -505,11 +474,8 @@ export default function Navbar({
                     >
                         A
                     </Link>
-
                 </div>
-
             </div>
-
         </header>
     );
 }

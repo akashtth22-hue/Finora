@@ -4,13 +4,15 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
     try {
-        const user = await getCurrentUser();
+        const user =
+            await getCurrentUser();
 
         if (!user) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Unauthorized",
+                    message:
+                        "Unauthorized",
                 },
                 { status: 401 }
             );
@@ -18,14 +20,17 @@ export async function GET() {
 
         return NextResponse.json({
             success: true,
+
             user: {
                 id: user.id,
                 fullName: user.fullName,
                 email: user.email,
                 phone: user.phone,
                 image: user.image,
-                isVerified: user.isVerified,
-                createdAt: user.createdAt,
+                isVerified:
+                    user.isVerified,
+                createdAt:
+                    user.createdAt,
             },
         });
     } catch (error) {
@@ -45,35 +50,50 @@ export async function GET() {
     }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(
+    request: Request
+) {
     try {
-        const user = await getCurrentUser();
+        const user =
+            await getCurrentUser();
 
         if (!user) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Unauthorized",
+                    message:
+                        "Unauthorized",
                 },
                 { status: 401 }
             );
         }
 
-        const body = await request.json();
+        const body =
+            await request.json();
 
         const fullName =
-            typeof body.fullName === "string"
+            typeof body.fullName ===
+            "string"
                 ? body.fullName.trim()
                 : "";
 
-        const phone =
-            typeof body.phone === "string"
-                ? body.phone.trim()
-                : null;
+        let phone: string | null =
+            null;
 
-        /*
-         * Full name validation
-         */
+        if (
+            typeof body.phone ===
+            "string"
+        ) {
+            const trimmedPhone =
+                body.phone.trim();
+
+            phone =
+                trimmedPhone ||
+                null;
+        }
+
+        /* ================= FULL NAME ================= */
+
         if (!fullName) {
             return NextResponse.json(
                 {
@@ -107,13 +127,8 @@ export async function PATCH(request: Request) {
             );
         }
 
-        /*
-         * Phone validation
-         *
-         * Phone is optional.
-         * We only allow digits, spaces,
-         * +, -, (, and ).
-         */
+        /* ================= PHONE ================= */
+
         if (
             phone &&
             !/^[0-9+\-\s()]{7,20}$/.test(
@@ -130,10 +145,8 @@ export async function PATCH(request: Request) {
             );
         }
 
-        /*
-         * Update only the authenticated user's
-         * own record.
-         */
+        /* ================= UPDATE ================= */
+
         const updatedUser =
             await prisma.user.update({
                 where: {
@@ -142,7 +155,7 @@ export async function PATCH(request: Request) {
 
                 data: {
                     fullName,
-                    phone: phone || null,
+                    phone,
                 },
             });
 

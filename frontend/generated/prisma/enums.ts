@@ -33,3 +33,11 @@ export const NotificationType = {
 } as const
 
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]
+
+
+export const AIMessageRole = {
+  USER: 'USER',
+  ASSISTANT: 'ASSISTANT'
+} as const
+
+export type AIMessageRole = (typeof AIMessageRole)[keyof typeof AIMessageRole]

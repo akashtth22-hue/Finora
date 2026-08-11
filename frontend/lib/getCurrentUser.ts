@@ -3,25 +3,35 @@ import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/jwt";
 
 export async function getCurrentUser() {
-  const cookieStore = await cookies();
+    const cookieStore = await cookies();
 
-  const token = cookieStore.get("token")?.value;
+    const token =
+        cookieStore.get("token")?.value;
 
-  if (!token) {
-    return null;
-  }
+    if (!token) {
+        return null;
+    }
 
-  try {
-    const payload = await verifyToken(token);
+    try {
+        const payload =
+            await verifyToken(token);
 
-    const user = await prisma.user.findUnique({
-      where: {
-        id: payload.userId as string,
-      },
-    });
+        if (
+            typeof payload.userId !==
+            "string"
+        ) {
+            return null;
+        }
 
-    return user;
-  } catch {
-    return null;
-  }
+        const user =
+            await prisma.user.findUnique({
+                where: {
+                    id: payload.userId,
+                },
+            });
+
+        return user;
+    } catch {
+        return null;
+    }
 }

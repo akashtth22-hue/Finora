@@ -3,13 +3,53 @@ import { getCurrentUser } from "@/lib/getCurrentUser";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+const DAILY_AI_LIMIT = 20;
+const AI_MODEL = "gemini-3.5-flash-lite";
+const MAX_HISTORY_MESSAGES = 100;
+
 const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY,
 });
 
-const DAILY_AI_LIMIT = 20;
+/* =====================================================
+ * DATE HELPERS
+===================================================== */
 
-export async function POST(request: Request) {
+function getTodayRange() {
+    const now = new Date();
+
+    const startOfToday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+    );
+
+    const startOfTomorrow = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1
+    );
+
+    return {
+        now,
+        startOfToday,
+        startOfTomorrow,
+    };
+}
+
+/* =====================================================
+ * GET AI USAGE + CURRENT CHAT
+ *
+ * Optional:
+ * ?conversationId=xxxxx
+ *
+ * If conversationId is provided, that conversation
+ * is loaded.
+ *
+ * If not provided, the latest conversation is loaded.
+===================================================== */
+
+export async function GET(request: Request) {
     try {
         const user = await getCurrentUser();
 
@@ -23,23 +63,314 @@ export async function POST(request: Request) {
             );
         }
 
-        if (!process.env.GEMINI_API_KEY) {
+        const {
+            startOfToday,
+            startOfTomorrow,
+        } = getTodayRange();
+
+        /* ================= AI USAGE ================= */
+
+        let usage =
+            await prisma.aiUsage.upsert({
+                where: {
+                    userId: user.id,
+                },
+
+                create: {
+                    userId: user.id,
+                    date: startOfToday,
+                    questions: 0,
+                },
+
+                update: {},
+            });
+
+        /* ================= DAILY RESET ================= */
+
+        if (
+            usage.date < startOfToday ||
+            usage.date >= startOfTomorrow
+        ) {
+            usage =
+                await prisma.aiUsage.update({
+                    where: {
+                        userId: user.id,
+                    },
+
+                    data: {
+                        date: startOfToday,
+                        questions: 0,
+                    },
+                });
+        }
+
+        /* ================= CONVERSATION ================= */
+
+        const url = new URL(request.url);
+
+        const requestedConversationId =
+            url.searchParams.get(
+                "conversationId"
+            );
+
+        let conversation = null;
+
+        if (requestedConversationId) {
+            /*
+             * IMPORTANT:
+             * Only allow the authenticated user
+             * to access their own conversation.
+             */
+            conversation =
+                await prisma.aIConversation.findFirst(
+                    {
+                        where: {
+                            id: requestedConversationId,
+                            userId: user.id,
+                        },
+                    }
+                );
+
+            if (!conversation) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message:
+                            "Conversation not found.",
+                    },
+                    { status: 404 }
+                );
+            }
+        } else {
+            /*
+             * Backward compatibility:
+             * If no conversation ID is provided,
+             * load the user's latest conversation.
+             */
+            conversation =
+                await prisma.aIConversation.findFirst(
+                    {
+                        where: {
+                            userId: user.id,
+                        },
+
+                        orderBy: {
+                            updatedAt: "desc",
+                        },
+                    }
+                );
+        }
+
+        /* ================= MESSAGES ================= */
+
+        let messages: {
+            id: string;
+            role:
+                | "user"
+                | "assistant";
+            content: string;
+            createdAt: Date;
+        }[] = [];
+
+        if (conversation) {
+            const history =
+                await prisma.aIMessage.findMany({
+                    where: {
+                        conversationId:
+                            conversation.id,
+                    },
+
+                    orderBy: {
+                        createdAt: "desc",
+                    },
+
+                    take: MAX_HISTORY_MESSAGES,
+                });
+
+            messages = history
+                .reverse()
+                .map((item) => ({
+                    id: item.id,
+
+                    role:
+                        item.role ===
+                        "USER"
+                            ? "user"
+                            : "assistant",
+
+                    content:
+                        item.content,
+
+                    createdAt:
+                        item.createdAt,
+                }));
+        }
+
+        /* ================= USAGE RESPONSE ================= */
+
+        const questionsUsed =
+            Math.max(
+                Number(
+                    usage.questions
+                ),
+                0
+            );
+
+        return NextResponse.json({
+            success: true,
+
+            usage: {
+                questionsUsed,
+
+                questionsRemaining:
+                    Math.max(
+                        DAILY_AI_LIMIT -
+                            questionsUsed,
+                        0
+                    ),
+
+                dailyLimit:
+                    DAILY_AI_LIMIT,
+            },
+
+            history: {
+                conversationId:
+                    conversation?.id ??
+                    null,
+
+                title:
+                    conversation?.title ??
+                    null,
+
+                messages,
+            },
+        });
+    } catch (error) {
+        console.error(
+            "AI Chat GET Error:",
+            error
+        );
+
+        return NextResponse.json(
+            {
+                success: false,
+                message:
+                    "Unable to load AI chat.",
+            },
+            { status: 500 }
+        );
+    }
+}
+
+/* =====================================================
+ * ASK AI
+===================================================== */
+
+export async function POST(
+    request: Request
+) {
+    let reservedQuestion = false;
+
+    try {
+        /* ================= AUTHENTICATION ================= */
+
+        const user =
+            await getCurrentUser();
+
+        if (!user) {
             return NextResponse.json(
                 {
                     success: false,
                     message:
-                        "Gemini API key is not configured.",
+                        "Unauthorized",
+                },
+                { status: 401 }
+            );
+        }
+
+        /* ================= API KEY ================= */
+
+        if (
+            !process.env.GEMINI_API_KEY
+        ) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "AI service is not configured.",
                 },
                 { status: 500 }
             );
         }
 
-        const body = await request.json();
+        /* ================= REQUEST BODY ================= */
+
+        let body: unknown;
+
+        try {
+            body =
+                await request.json();
+        } catch {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "Invalid request body.",
+                },
+                { status: 400 }
+            );
+        }
 
         const message =
-            typeof body.message === "string"
-                ? body.message.trim()
+            typeof body === "object" &&
+            body !== null &&
+            "message" in body &&
+            typeof (
+                body as {
+                    message?: unknown;
+                }
+            ).message === "string"
+                ? (
+                      body as {
+                          message: string;
+                      }
+                  ).message.trim()
                 : "";
+
+        const conversationId =
+            typeof body === "object" &&
+            body !== null &&
+            "conversationId" in body &&
+            typeof (
+                body as {
+                    conversationId?: unknown;
+                }
+            ).conversationId === "string"
+                ? (
+                      body as {
+                          conversationId: string;
+                      }
+                  ).conversationId.trim()
+                : null;
+
+        /*
+         * NEW:
+         *
+         * When true, the request must start a completely
+         * separate conversation instead of falling back
+         * to the latest conversation.
+         */
+        const newConversation =
+            typeof body === "object" &&
+            body !== null &&
+            "newConversation" in body &&
+            (
+                body as {
+                    newConversation?: unknown;
+                }
+            ).newConversation === true;
+
+        /* ================= MESSAGE VALIDATION ================= */
 
         if (!message) {
             return NextResponse.json(
@@ -57,67 +388,49 @@ export async function POST(request: Request) {
                 {
                     success: false,
                     message:
-                        "Question is too long.",
+                        "Question is too long. Please keep it under 2000 characters.",
                 },
                 { status: 400 }
             );
         }
 
-        /*
-         * =========================================================
-         * DAILY AI USAGE LIMIT
-         * =========================================================
-         */
+        /* ================= DATE ================= */
 
-        const now = new Date();
+        const {
+            now,
+            startOfToday,
+            startOfTomorrow,
+        } = getTodayRange();
 
-        const startOfToday = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate()
-        );
-
-        const endOfToday = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate() + 1
-        );
+        /* ================= AI USAGE ================= */
 
         let usage =
-            await prisma.aiUsage.findUnique({
+            await prisma.aiUsage.upsert({
                 where: {
                     userId: user.id,
                 },
+
+                create: {
+                    userId: user.id,
+                    date: startOfToday,
+                    questions: 0,
+                },
+
+                update: {},
             });
 
-        /*
-         * If the user has no usage record,
-         * create one.
-         */
-        if (!usage) {
-            usage =
-                await prisma.aiUsage.create({
-                    data: {
-                        userId: user.id,
-                        date: startOfToday,
-                        questions: 0,
-                    },
-                });
-        }
+        /* ================= DAILY RESET ================= */
 
-        /*
-         * If the stored date is from a previous day,
-         * reset the counter.
-         */
         if (
             usage.date < startOfToday ||
-            usage.date >= endOfToday
+            usage.date >= startOfTomorrow
         ) {
             usage =
                 await prisma.aiUsage.update({
                     where: {
                         userId: user.id,
                     },
+
                     data: {
                         date: startOfToday,
                         questions: 0,
@@ -125,13 +438,31 @@ export async function POST(request: Request) {
                 });
         }
 
-        /*
-         * Stop BEFORE calling Gemini.
-         */
-        if (
-            usage.questions >=
-            DAILY_AI_LIMIT
-        ) {
+        /* ================= ATOMIC LIMIT CHECK ================= */
+
+        const reserved =
+            await prisma.aiUsage.updateMany({
+                where: {
+                    userId: user.id,
+
+                    date: {
+                        gte: startOfToday,
+                        lt: startOfTomorrow,
+                    },
+
+                    questions: {
+                        lt: DAILY_AI_LIMIT,
+                    },
+                },
+
+                data: {
+                    questions: {
+                        increment: 1,
+                    },
+                },
+            });
+
+        if (reserved.count === 0) {
             return NextResponse.json(
                 {
                     success: false,
@@ -145,50 +476,133 @@ export async function POST(request: Request) {
             );
         }
 
-        /*
-         * =========================================================
-         * GET USER FINANCIAL DATA
-         * =========================================================
-         */
+        reservedQuestion = true;
 
-        const transactions =
-            await prisma.transaction.findMany({
+        /* ================= SELECT CONVERSATION ================= */
+
+        let conversation = null;
+
+        /*
+         * IMPORTANT:
+         *
+         * newConversation takes priority.
+         *
+         * This means the frontend can explicitly tell
+         * the backend:
+         *
+         * "Do NOT continue the previous conversation."
+         *
+         * A new conversation will be created only after
+         * Gemini successfully answers the question.
+         */
+        if (newConversation) {
+            conversation = null;
+        } else if (conversationId) {
+            /*
+             * SECURITY:
+             * The conversation MUST belong
+             * to the authenticated user.
+             */
+            conversation =
+                await prisma.aIConversation.findFirst(
+                    {
+                        where: {
+                            id: conversationId,
+                            userId: user.id,
+                        },
+                    }
+                );
+
+            if (!conversation) {
+                /*
+                 * The AI question was already reserved,
+                 * so refund it before returning.
+                 */
+                if (
+                    reservedQuestion
+                ) {
+                    await prisma.aiUsage.updateMany(
+                        {
+                            where: {
+                                userId:
+                                    user.id,
+
+                                date: {
+                                    gte: startOfToday,
+                                    lt: startOfTomorrow,
+                                },
+
+                                questions: {
+                                    gt: 0,
+                                },
+                            },
+
+                            data: {
+                                questions: {
+                                    decrement: 1,
+                                },
+                            },
+                        }
+                    );
+
+                    reservedQuestion =
+                        false;
+                }
+
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message:
+                            "Conversation not found.",
+                    },
+                    { status: 404 }
+                );
+            }
+        }
+
+        /* ================= FINANCIAL DATA ================= */
+
+        const [
+            transactions,
+            budgets,
+            savingsGoals,
+        ] = await Promise.all([
+            prisma.transaction.findMany({
                 where: {
                     userId: user.id,
                 },
+
                 orderBy: {
                     date: "desc",
                 },
-            });
+            }),
 
-        const budgets =
-            await prisma.budget.findMany({
+            prisma.budget.findMany({
                 where: {
                     userId: user.id,
                 },
+
                 orderBy: {
                     month: "desc",
                 },
-            });
+            }),
 
-        const savingsGoals =
-            await prisma.savingsGoal.findMany({
+            prisma.savingsGoal.findMany({
                 where: {
                     userId: user.id,
                 },
+
                 include: {
                     entries: true,
                 },
+
                 orderBy: {
                     createdAt: "desc",
                 },
-            });
+            }),
+        ]);
 
-        /*
-         * =========================================================
-         * CURRENT MONTH
-         * =========================================================
-         */
+        /* ================= CURRENT MONTH ================= */
 
         const currentYear =
             now.getFullYear();
@@ -199,9 +613,10 @@ export async function POST(request: Request) {
         const currentMonthTransactions =
             transactions.filter(
                 (transaction) => {
-                    const date = new Date(
-                        transaction.date
-                    );
+                    const date =
+                        new Date(
+                            transaction.date
+                        );
 
                     return (
                         date.getFullYear() ===
@@ -212,11 +627,7 @@ export async function POST(request: Request) {
                 }
             );
 
-        /*
-         * =========================================================
-         * INCOME
-         * =========================================================
-         */
+        /* ================= INCOME ================= */
 
         const totalIncome =
             currentMonthTransactions
@@ -226,7 +637,10 @@ export async function POST(request: Request) {
                         "INCOME"
                 )
                 .reduce(
-                    (total, transaction) =>
+                    (
+                        total,
+                        transaction
+                    ) =>
                         total +
                         Number(
                             transaction.amount
@@ -234,11 +648,7 @@ export async function POST(request: Request) {
                     0
                 );
 
-        /*
-         * =========================================================
-         * EXPENSES
-         * =========================================================
-         */
+        /* ================= EXPENSES ================= */
 
         const totalExpenses =
             currentMonthTransactions
@@ -248,7 +658,10 @@ export async function POST(request: Request) {
                         "EXPENSE"
                 )
                 .reduce(
-                    (total, transaction) =>
+                    (
+                        total,
+                        transaction
+                    ) =>
                         total +
                         Number(
                             transaction.amount
@@ -267,11 +680,7 @@ export async function POST(request: Request) {
                   100
                 : 0;
 
-        /*
-         * =========================================================
-         * SPENDING CATEGORIES
-         * =========================================================
-         */
+        /* ================= SPENDING CATEGORIES ================= */
 
         const categoryMap: Record<
             string,
@@ -284,20 +693,27 @@ export async function POST(request: Request) {
                     transaction.type ===
                     "EXPENSE"
             )
-            .forEach((transaction) => {
-                const category =
-                    transaction.category;
+            .forEach(
+                (transaction) => {
+                    const category =
+                        transaction.category;
 
-                categoryMap[category] =
-                    (categoryMap[category] ||
-                        0) +
-                    Number(
-                        transaction.amount
-                    );
-            });
+                    categoryMap[
+                        category
+                    ] =
+                        (categoryMap[
+                            category
+                        ] || 0) +
+                        Number(
+                            transaction.amount
+                        );
+                }
+            );
 
         const spendingByCategory =
-            Object.entries(categoryMap)
+            Object.entries(
+                categoryMap
+            )
                 .map(
                     ([
                         category,
@@ -313,25 +729,24 @@ export async function POST(request: Request) {
                         a.amount
                 );
 
-        /*
-         * =========================================================
-         * CURRENT BUDGETS
-         * =========================================================
-         */
+        /* ================= CURRENT BUDGETS ================= */
 
         const currentBudgets =
-            budgets.filter((budget) => {
-                const date = new Date(
-                    budget.month
-                );
+            budgets.filter(
+                (budget) => {
+                    const date =
+                        new Date(
+                            budget.month
+                        );
 
-                return (
-                    date.getFullYear() ===
-                        currentYear &&
-                    date.getMonth() ===
-                        currentMonth
-                );
-            });
+                    return (
+                        date.getFullYear() ===
+                            currentYear &&
+                        date.getMonth() ===
+                            currentMonth
+                    );
+                }
+            );
 
         const budgetAnalysis =
             currentBudgets.map(
@@ -366,91 +781,121 @@ export async function POST(request: Request) {
                 }
             );
 
-        /*
-         * =========================================================
-         * SAVINGS GOALS
-         * =========================================================
-         */
+        /* ================= SAVINGS GOALS ================= */
 
         const savingsAnalysis =
-            savingsGoals.map((goal) => {
-                const deposited =
-                    goal.entries
-                        .filter(
-                            (entry) =>
-                                entry.type ===
-                                "DEPOSIT"
-                        )
-                        .reduce(
-                            (
-                                total,
-                                entry
-                            ) =>
-                                total +
-                                Number(
-                                    entry.amount
-                                ),
-                            0
+            savingsGoals.map(
+                (goal) => {
+                    const deposited =
+                        goal.entries
+                            .filter(
+                                (entry) =>
+                                    entry.type ===
+                                    "DEPOSIT"
+                            )
+                            .reduce(
+                                (
+                                    total,
+                                    entry
+                                ) =>
+                                    total +
+                                    Number(
+                                        entry.amount
+                                    ),
+                                0
+                            );
+
+                    const withdrawn =
+                        goal.entries
+                            .filter(
+                                (entry) =>
+                                    entry.type ===
+                                    "WITHDRAWAL"
+                            )
+                            .reduce(
+                                (
+                                    total,
+                                    entry
+                                ) =>
+                                    total +
+                                    Number(
+                                        entry.amount
+                                    ),
+                                0
+                            );
+
+                    const currentSaved =
+                        deposited -
+                        withdrawn;
+
+                    const targetAmount =
+                        Number(
+                            goal.targetAmount
                         );
 
-                const withdrawn =
-                    goal.entries
-                        .filter(
-                            (entry) =>
-                                entry.type ===
-                                "WITHDRAWAL"
-                        )
-                        .reduce(
-                            (
-                                total,
-                                entry
-                            ) =>
-                                total +
-                                Number(
-                                    entry.amount
-                                ),
+                    return {
+                        name: goal.name,
+
+                        targetAmount,
+
+                        currentSaved,
+
+                        remaining:
+                            Math.max(
+                                targetAmount -
+                                    currentSaved,
+                                0
+                            ),
+
+                        progress:
+                            targetAmount >
                             0
-                        );
+                                ? (currentSaved /
+                                      targetAmount) *
+                                  100
+                                : 0,
 
-                const currentSaved =
-                    deposited -
-                    withdrawn;
+                        deadline:
+                            goal.deadline,
+                    };
+                }
+            );
 
-                const targetAmount =
-                    Number(
-                        goal.targetAmount
-                    );
+        /* ================= SELECT CHAT HISTORY ================= */
 
-                return {
-                    name: goal.name,
+        let previousMessages: {
+            role:
+                | "USER"
+                | "ASSISTANT";
+            content: string;
+        }[] = [];
 
-                    targetAmount,
+        if (conversation) {
+            const history =
+                await prisma.aIMessage.findMany({
+                    where: {
+                        conversationId:
+                            conversation.id,
+                    },
 
-                    currentSaved,
+                    orderBy: {
+                        createdAt: "desc",
+                    },
 
-                    remaining: Math.max(
-                        targetAmount -
-                            currentSaved,
-                        0
-                    ),
+                    take: MAX_HISTORY_MESSAGES,
+                });
 
-                    progress:
-                        targetAmount > 0
-                            ? (currentSaved /
-                                  targetAmount) *
-                              100
-                            : 0,
+            previousMessages =
+                history.reverse().map(
+                    (item) => ({
+                        role: item.role,
+                        content:
+                            item.content,
+                    })
+                );
+        }
 
-                    deadline:
-                        goal.deadline,
-                };
-            });
-
-        /*
-         * =========================================================
-         * FINANCIAL CONTEXT
-         * =========================================================
-         */
+        /* ================= FINANCIAL CONTEXT ================= */
 
         const financialContext = {
             currentMonth: `${currentYear}-${String(
@@ -459,7 +904,8 @@ export async function POST(request: Request) {
 
             income: totalIncome,
 
-            expenses: totalExpenses,
+            expenses:
+                totalExpenses,
 
             netCashFlow,
 
@@ -467,26 +913,50 @@ export async function POST(request: Request) {
 
             spendingByCategory,
 
-            budgets: budgetAnalysis,
+            budgets:
+                budgetAnalysis,
 
             savingsGoals:
                 savingsAnalysis,
         };
 
-        /*
-         * =========================================================
-         * GEMINI PROMPT
-         * =========================================================
-         */
+        /* ================= CHAT HISTORY CONTEXT ================= */
+
+        const chatHistoryContext =
+            previousMessages.length > 0
+                ? previousMessages
+                      .map(
+                          (item) =>
+                              `${
+                                  item.role ===
+                                  "USER"
+                                      ? "User"
+                                      : "Finora"
+                              }: ${
+                                  item.content
+                              }`
+                      )
+                      .join(
+                          "\n\n"
+                      )
+                : "No previous conversation.";
+
+        /* ================= GEMINI PROMPT ================= */
 
         const prompt = `
 You are Finora, an AI personal finance assistant.
 
-The user has asked this question:
+The user is having an ongoing conversation with you.
+
+PREVIOUS CONVERSATION:
+
+${chatHistoryContext}
+
+CURRENT USER QUESTION:
 
 "${message}"
 
-Use the user's financial context below to answer the question.
+Use the user's financial context below to answer the current question.
 
 IMPORTANT RULES:
 
@@ -507,6 +977,12 @@ IMPORTANT RULES:
    financial topics.
 10. Keep the answer concise but useful.
 11. When calculations are needed, calculate them carefully.
+12. Treat the current user question as the latest message.
+13. Do not repeat the entire previous conversation unless
+    necessary.
+14. If the user asks a follow-up such as "yes", "why?",
+    "give me more", or "what about that?", use the previous
+    conversation to understand what they mean.
 
 USER FINANCIAL CONTEXT:
 
@@ -517,68 +993,273 @@ ${JSON.stringify(
 )}
 `;
 
-        /*
-         * =========================================================
-         * CALL GEMINI
-         * =========================================================
-         */
+        /* ================= GEMINI ================= */
 
-        const response =
-            await ai.models.generateContent({
-                model: "gemini-3.6-flash",
+        let response;
 
-                contents: prompt,
-            });
+        try {
+            response =
+                await ai.models.generateContent(
+                    {
+                        model: AI_MODEL,
+                        contents: prompt,
+                    }
+                );
+        } catch (error) {
+            console.error(
+                "Gemini API Error:",
+                error
+            );
+
+            /* ================= REFUND ================= */
+
+            if (
+                reservedQuestion
+            ) {
+                await prisma.aiUsage.updateMany(
+                    {
+                        where: {
+                            userId: user.id,
+
+                            date: {
+                                gte: startOfToday,
+                                lt: startOfTomorrow,
+                            },
+
+                            questions: {
+                                gt: 0,
+                            },
+                        },
+
+                        data: {
+                            questions: {
+                                decrement: 1,
+                            },
+                        },
+                    }
+                );
+
+                reservedQuestion =
+                    false;
+            }
+
+            /* ================= PROVIDER ERROR ================= */
+
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : String(error);
+
+            const normalizedError =
+                errorMessage.toLowerCase();
+
+            const isRateLimit =
+                normalizedError.includes(
+                    "429"
+                ) ||
+                normalizedError.includes(
+                    "resource_exhausted"
+                ) ||
+                normalizedError.includes(
+                    "resource exhausted"
+                ) ||
+                normalizedError.includes(
+                    "quota"
+                ) ||
+                normalizedError.includes(
+                    "rate limit"
+                ) ||
+                normalizedError.includes(
+                    "too many requests"
+                );
+
+            if (isRateLimit) {
+                return NextResponse.json(
+                    {
+                        success: false,
+
+                        limitReached: false,
+
+                        providerLimitReached:
+                            true,
+
+                        message:
+                            "Finora still has AI questions available, but the AI provider is temporarily rate-limited. Please wait a moment and try again.",
+                    },
+                    {
+                        status: 429,
+                    }
+                );
+            }
+
+            return NextResponse.json(
+                {
+                    success: false,
+
+                    providerLimitReached:
+                        false,
+
+                    message:
+                        "Unable to generate an AI response right now. Please try again later.",
+                },
+                {
+                    status: 503,
+                }
+            );
+        }
+
+        /* ================= RESPONSE ================= */
 
         const answer =
             response.text?.trim();
 
         if (!answer) {
-            throw new Error(
-                "Gemini returned an empty response."
+            if (
+                reservedQuestion
+            ) {
+                await prisma.aiUsage.updateMany(
+                    {
+                        where: {
+                            userId: user.id,
+
+                            date: {
+                                gte: startOfToday,
+                                lt: startOfTomorrow,
+                            },
+
+                            questions: {
+                                gt: 0,
+                            },
+                        },
+
+                        data: {
+                            questions: {
+                                decrement: 1,
+                            },
+                        },
+                    }
+                );
+
+                reservedQuestion =
+                    false;
+            }
+
+            return NextResponse.json(
+                {
+                    success: false,
+
+                    message:
+                        "The AI returned an empty response. Please try again.",
+                },
+                { status: 503 }
             );
         }
 
-        /*
-         * =========================================================
-         * COUNT SUCCESSFUL AI QUESTION
-         * =========================================================
-         *
-         * We increment only after Gemini successfully
-         * returns an answer.
-         */
+        /* ================= CREATE CONVERSATION IF NEEDED ================= */
 
-        const updatedUsage =
-            await prisma.aiUsage.update({
+        let savedConversation =
+            conversation;
+
+        if (!savedConversation) {
+            savedConversation =
+                await prisma.aIConversation.create(
+                    {
+                        data: {
+                            userId:
+                                user.id,
+
+                            /*
+                             * First question becomes
+                             * the conversation title.
+                             */
+                            title:
+                                message.length >
+                                60
+                                    ? `${message.slice(
+                                          0,
+                                          57
+                                      )}...`
+                                    : message,
+                        },
+                    }
+                );
+        }
+
+        /* ================= SAVE MESSAGES ================= */
+
+        await prisma.$transaction([
+            prisma.aIMessage.create({
+                data: {
+                    conversationId:
+                        savedConversation.id,
+
+                    role: "USER",
+
+                    content: message,
+                },
+            }),
+
+            prisma.aIMessage.create({
+                data: {
+                    conversationId:
+                        savedConversation.id,
+
+                    role: "ASSISTANT",
+
+                    content: answer,
+                },
+            }),
+
+            prisma.aIConversation.update({
+                where: {
+                    id: savedConversation.id,
+                },
+
+                data: {
+                    updatedAt:
+                        new Date(),
+                },
+            }),
+        ]);
+
+        /* ================= FINAL USAGE ================= */
+
+        const finalUsage =
+            await prisma.aiUsage.findUnique({
                 where: {
                     userId: user.id,
                 },
-                data: {
-                    questions: {
-                        increment: 1,
-                    },
-                },
             });
 
-        /*
-         * =========================================================
-         * FINAL RESPONSE
-         * =========================================================
-         */
+        const questionsUsed =
+            Math.max(
+                Number(
+                    finalUsage?.questions ??
+                        0
+                ),
+                0
+            );
+
+        /* ================= RESPONSE ================= */
 
         return NextResponse.json({
             success: true,
 
             answer,
 
+            conversationId:
+                savedConversation.id,
+
+            title:
+                savedConversation.title,
+
             usage: {
-                questionsUsed:
-                    updatedUsage.questions,
+                questionsUsed,
 
                 questionsRemaining:
                     Math.max(
                         DAILY_AI_LIMIT -
-                            updatedUsage.questions,
+                            questionsUsed,
                         0
                     ),
 
@@ -592,14 +1273,62 @@ ${JSON.stringify(
             error
         );
 
+        /* ================= UNEXPECTED ERROR REFUND ================= */
+
+        if (
+            reservedQuestion
+        ) {
+            try {
+                const user =
+                    await getCurrentUser();
+
+                if (user) {
+                    const {
+                        startOfToday,
+                        startOfTomorrow,
+                    } =
+                        getTodayRange();
+
+                    await prisma.aiUsage.updateMany(
+                        {
+                            where: {
+                                userId:
+                                    user.id,
+
+                                date: {
+                                    gte: startOfToday,
+                                    lt: startOfTomorrow,
+                                },
+
+                                questions: {
+                                    gt: 0,
+                                },
+                            },
+
+                            data: {
+                                questions: {
+                                    decrement: 1,
+                                },
+                            },
+                        }
+                    );
+                }
+            } catch (
+                refundError
+            ) {
+                console.error(
+                    "AI usage refund error:",
+                    refundError
+                );
+            }
+        }
+
         return NextResponse.json(
             {
                 success: false,
 
                 message:
-                    error instanceof Error
-                        ? error.message
-                        : "Unable to generate an AI response.",
+                    "Unable to process your AI request right now.",
             },
             { status: 500 }
         );

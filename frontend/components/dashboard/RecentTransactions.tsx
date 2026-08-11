@@ -1,99 +1,153 @@
+import Link from "next/link";
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  ArrowRight,
 } from "lucide-react";
 
-const transactions = [
-  {
-    title: "Salary",
-    date: "Today",
-    amount: "+₹75,000",
-    income: true,
-  },
-  {
-    title: "Swiggy",
-    date: "Today",
-    amount: "-₹480",
-    income: false,
-  },
-  {
-    title: "Netflix",
-    date: "Yesterday",
-    amount: "-₹649",
-    income: false,
-  },
-  {
-    title: "SIP Investment",
-    date: "Yesterday",
-    amount: "-₹5,000",
-    income: false,
-  },
-];
+type Transaction = {
+  id: string;
+  title: string;
+  category: string;
+  type: "INCOME" | "EXPENSE";
+  amount: number;
+  date: string;
+};
 
-export default function RecentTransactions() {
+type Props = {
+  transactions: Transaction[];
+};
+
+function formatCurrency(value: number) {
+  return `₹${Number(value || 0).toLocaleString(
+    "en-IN",
+    {
+      maximumFractionDigits: 2,
+    }
+  )}`;
+}
+
+function formatDate(dateString: string) {
+  return new Date(
+    dateString
+  ).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+export default function RecentTransactions({
+  transactions,
+}: Props) {
+  const items = transactions.slice(
+    0,
+    5
+  );
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
 
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between gap-3">
         <h2 className="text-xl font-bold text-gray-900">
           Recent Transactions
         </h2>
 
-        <button className="text-sm font-medium text-purple-600 hover:text-purple-700">
+        <Link
+          href="/transactions"
+          className="flex items-center gap-1 text-sm font-semibold text-purple-600 transition hover:text-purple-700"
+        >
           View All
-        </button>
+          <ArrowRight size={15} />
+        </Link>
       </div>
 
-      <div className="space-y-5">
+      {items.length === 0 ? (
+        <div className="rounded-xl bg-gray-50 px-5 py-10 text-center">
+          <p className="font-semibold text-gray-700">
+            No transactions yet
+          </p>
 
-        {transactions.map((transaction, index) => (
-          <div
-            key={index}
-            className="flex items-center justify-between"
+          <p className="mt-1 text-sm text-gray-500">
+            Add your first transaction to see it here.
+          </p>
+
+          <Link
+            href="/transactions"
+            className="mt-4 inline-block rounded-xl bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-700"
           >
-            <div className="flex items-center gap-4">
+            Add Transaction
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {items.map(
+            (transaction) => {
+              const income =
+                transaction.type ===
+                "INCOME";
 
-              <div
-                className={`rounded-full p-3 ${
-                  transaction.income
-                    ? "bg-green-100"
-                    : "bg-red-100"
-                }`}
-              >
-                {transaction.income ? (
-                  <ArrowDownLeft className="text-green-600" size={20} />
-                ) : (
-                  <ArrowUpRight className="text-red-500" size={20} />
-                )}
-              </div>
+              return (
+                <div
+                  key={
+                    transaction.id
+                  }
+                  className="flex items-center justify-between gap-4"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
+                        income
+                          ? "bg-green-100 text-green-600"
+                          : "bg-red-100 text-red-500"
+                      }`}
+                    >
+                      {income ? (
+                        <ArrowDownLeft
+                          size={20}
+                        />
+                      ) : (
+                        <ArrowUpRight
+                          size={20}
+                        />
+                      )}
+                    </div>
 
-              <div>
-                <h3 className="font-semibold">
-                  {transaction.title}
-                </h3>
+                    <div className="min-w-0">
+                      <h3 className="truncate text-sm font-semibold text-gray-900">
+                        {
+                          transaction.title
+                        }
+                      </h3>
 
-                <p className="text-sm text-gray-500">
-                  {transaction.date}
-                </p>
-              </div>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        {formatDate(
+                          transaction.date
+                        )}
+                      </p>
+                    </div>
+                  </div>
 
-            </div>
-
-            <p
-              className={`font-bold ${
-                transaction.income
-                  ? "text-green-600"
-                  : "text-red-500"
-              }`}
-            >
-              {transaction.amount}
-            </p>
-
-          </div>
-        ))}
-
-      </div>
-
+                  <p
+                    className={`shrink-0 text-sm font-bold ${
+                      income
+                        ? "text-green-600"
+                        : "text-red-500"
+                    }`}
+                  >
+                    {income
+                      ? "+"
+                      : "-"}
+                    {formatCurrency(
+                      transaction.amount
+                    )}
+                  </p>
+                </div>
+              );
+            }
+          )}
+        </div>
+      )}
     </div>
   );
 }

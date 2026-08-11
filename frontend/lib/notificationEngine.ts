@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
 
+/* =========================================================
+ * GENERATE NOTIFICATIONS
+ * ========================================================= */
+
 export async function generateNotifications(
     userId: string
 ) {
@@ -21,13 +25,15 @@ export async function generateNotifications(
         999
     );
 
-    /*
-     * Get current month's transactions
-     */
+    /* =====================================================
+     * CURRENT MONTH TRANSACTIONS
+     * ===================================================== */
+
     const transactions =
         await prisma.transaction.findMany({
             where: {
                 userId,
+
                 date: {
                     gte: startOfMonth,
                     lte: endOfMonth,
@@ -35,13 +41,15 @@ export async function generateNotifications(
             },
         });
 
-    /*
-     * Get current month's budgets
-     */
+    /* =====================================================
+     * CURRENT MONTH BUDGETS
+     * ===================================================== */
+
     const budgets =
         await prisma.budget.findMany({
             where: {
                 userId,
+
                 month: {
                     gte: startOfMonth,
                     lte: endOfMonth,
@@ -49,9 +57,10 @@ export async function generateNotifications(
             },
         });
 
-    /*
-     * Calculate spending by category
-     */
+    /* =====================================================
+     * SPENDING BY CATEGORY
+     * ===================================================== */
+
     const spendingByCategory: Record<
         string,
         number
@@ -65,18 +74,22 @@ export async function generateNotifications(
             continue;
         }
 
-        spendingByCategory[
-            transaction.category
-        ] =
+        const category =
+            transaction.category;
+
+        spendingByCategory[category] =
             (spendingByCategory[
-                transaction.category
+                category
             ] || 0) +
-            Number(transaction.amount);
+            Number(
+                transaction.amount
+            );
     }
 
-    /*
-     * Process budgets
-     */
+    /* =====================================================
+     * PROCESS BUDGETS
+     * ===================================================== */
+
     for (const budget of budgets) {
         const spent =
             spendingByCategory[
@@ -84,23 +97,29 @@ export async function generateNotifications(
             ] || 0;
 
         const budgetAmount =
-            Number(budget.amount);
+            Number(
+                budget.amount
+            );
 
         if (budgetAmount <= 0) {
             continue;
         }
 
         const percentage =
-            (spent / budgetAmount) * 100;
+            (spent /
+                budgetAmount) *
+            100;
 
-        /*
-         * Budget exceeded
-         */
+        /* ================= BUDGET EXCEEDED ================= */
+
         if (percentage >= 100) {
             await createNotificationIfNotExists(
                 userId,
+
                 "BUDGET_EXCEEDED",
+
                 `${budget.category} budget exceeded`,
+
                 `You've spent ₹${formatAmount(
                     spent
                 )} of your ₹${formatAmount(
@@ -111,14 +130,16 @@ export async function generateNotifications(
             continue;
         }
 
-        /*
-         * Budget warning
-         */
+        /* ================= BUDGET WARNING ================= */
+
         if (percentage >= 80) {
             await createNotificationIfNotExists(
                 userId,
+
                 "BUDGET_WARNING",
+
                 `${budget.category} budget warning`,
+
                 `You've used ${Math.round(
                     percentage
                 )}% of your ${budget.category} budget.`
@@ -126,20 +147,24 @@ export async function generateNotifications(
         }
     }
 
-    /*
-     * Savings goals
-     */
+    /* =====================================================
+     * SAVINGS GOALS
+     * ===================================================== */
+
     const savingsGoals =
         await prisma.savingsGoal.findMany({
             where: {
                 userId,
             },
+
             include: {
                 entries: true,
             },
         });
 
     for (const goal of savingsGoals) {
+        /* ================= DEPOSITS ================= */
+
         const deposited =
             goal.entries
                 .filter(
@@ -148,13 +173,18 @@ export async function generateNotifications(
                         "DEPOSIT"
                 )
                 .reduce(
-                    (total, entry) =>
+                    (
+                        total,
+                        entry
+                    ) =>
                         total +
                         Number(
                             entry.amount
                         ),
                     0
                 );
+
+        /* ================= WITHDRAWALS ================= */
 
         const withdrawn =
             goal.entries
@@ -164,7 +194,10 @@ export async function generateNotifications(
                         "WITHDRAWAL"
                 )
                 .reduce(
-                    (total, entry) =>
+                    (
+                        total,
+                        entry
+                    ) =>
                         total +
                         Number(
                             entry.amount
@@ -173,7 +206,8 @@ export async function generateNotifications(
                 );
 
         const currentSaved =
-            deposited - withdrawn;
+            deposited -
+            withdrawn;
 
         const targetAmount =
             Number(
@@ -189,14 +223,18 @@ export async function generateNotifications(
                 targetAmount) *
             100;
 
-        /*
-         * Savings progress
-         */
+        /* =================================================
+         * SAVINGS PROGRESS
+         * ================================================= */
+
         if (progress >= 80) {
             await createNotificationIfNotExists(
                 userId,
+
                 "SAVINGS_PROGRESS",
+
                 `${goal.name} is almost complete`,
+
                 `You've saved ${Math.round(
                     progress
                 )}% of your ₹${formatAmount(
@@ -205,9 +243,10 @@ export async function generateNotifications(
             );
         }
 
-        /*
-         * Savings deadline
-         */
+        /* =================================================
+         * SAVINGS DEADLINE
+         * ================================================= */
+
         if (goal.deadline) {
             const deadline =
                 new Date(
@@ -235,10 +274,14 @@ export async function generateNotifications(
             ) {
                 await createNotificationIfNotExists(
                     userId,
+
                     "SAVINGS_DEADLINE",
+
                     `${goal.name} deadline is approaching`,
+
                     `Your savings goal deadline is in ${daysRemaining} day${
-                        daysRemaining === 1
+                        daysRemaining ===
+                        1
                             ? ""
                             : "s"
                     }.`
@@ -248,9 +291,10 @@ export async function generateNotifications(
     }
 }
 
-/*
- * Prevent duplicate notifications.
- */
+/* =========================================================
+ * CREATE NOTIFICATION SAFELY
+ * ========================================================= */
+
 async function createNotificationIfNotExists(
     userId: string,
     type:
@@ -261,23 +305,43 @@ async function createNotificationIfNotExists(
     title: string,
     message: string
 ) {
+    const now = new Date();
+
+    const startOfToday =
+        new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate()
+        );
+
+    const endOfToday =
+        new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() + 1
+        );
+
+    /*
+     * Check whether the same notification
+     * type + title already exists today.
+     *
+     * We intentionally don't compare the
+     * message because the amount/percentage
+     * can change during the day.
+     */
     const existing =
         await prisma.notification.findFirst(
             {
                 where: {
                     userId,
+
                     type,
+
                     title,
-                    message,
+
                     createdAt: {
-                        gte: new Date(
-                            new Date().setHours(
-                                0,
-                                0,
-                                0,
-                                0
-                            )
-                        ),
+                        gte: startOfToday,
+                        lt: endOfToday,
                     },
                 },
             }
@@ -287,19 +351,71 @@ async function createNotificationIfNotExists(
         return;
     }
 
-    await prisma.notification.create({
-        data: {
-            userId,
-            type,
-            title,
-            message,
-        },
-    });
+    /*
+     * Prevent duplicate creation when two
+     * notification requests arrive at nearly
+     * the same time.
+     *
+     * PostgreSQL Serializable transactions
+     * make the read + create operation safer.
+     */
+    try {
+        await prisma.$transaction(
+            async (tx) => {
+                const alreadyExists =
+                    await tx.notification.findFirst(
+                        {
+                            where: {
+                                userId,
+
+                                type,
+
+                                title,
+
+                                createdAt: {
+                                    gte: startOfToday,
+                                    lt: endOfToday,
+                                },
+                            },
+                        }
+                    );
+
+                if (alreadyExists) {
+                    return;
+                }
+
+                await tx.notification.create({
+                    data: {
+                        userId,
+                        type,
+                        title,
+                        message,
+                    },
+                });
+            },
+            {
+                isolationLevel:
+                    "Serializable",
+            }
+        );
+    } catch (error) {
+        /*
+         * If another request created the
+         * notification simultaneously,
+         * don't break the user's notification
+         * endpoint.
+         */
+        console.error(
+            "Notification creation error:",
+            error
+        );
+    }
 }
 
-/*
- * Format money consistently.
- */
+/* =========================================================
+ * FORMAT MONEY
+ * ========================================================= */
+
 function formatAmount(
     amount: number
 ) {

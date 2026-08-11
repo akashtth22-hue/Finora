@@ -1,31 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/jwt";
 
-export async function middleware(req: NextRequest) {
-  console.log("🔥 Middleware Running");
+export async function middleware(
+    req: NextRequest
+) {
+    const token =
+        req.cookies.get("token")?.value;
 
-  const token = req.cookies.get("token")?.value;
+    if (!token) {
+        return NextResponse.redirect(
+            new URL("/login", req.url)
+        );
+    }
 
-  console.log("Token:", token);
+    try {
+        await verifyToken(token);
 
-  if (!token) {
-    console.log("❌ No Token Found");
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
+        return NextResponse.next();
+    } catch {
+        const response =
+            NextResponse.redirect(
+                new URL("/login", req.url)
+            );
 
-  try {
-    const decoded = await verifyToken(token);
+        /*
+         * Remove an invalid/expired token
+         * so the browser doesn't keep sending it.
+         */
+        response.cookies.set(
+            "token",
+            "",
+            {
+                httpOnly: true,
+                secure:
+                    process.env.NODE_ENV ===
+                    "production",
+                sameSite: "lax",
+                path: "/",
+                maxAge: 0,
+            }
+        );
 
-    console.log("✅ Decoded:", decoded);
-
-    return NextResponse.next();
-  } catch (error) {
-    console.error("❌ JWT Error:", error);
-
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
+        return response;
+    }
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+    matcher: [
+        "/dashboard/:path*",
+        "/transactions/:path*",
+        "/budget/:path*",
+        "/savings/:path*",
+        "/analytics/:path*",
+        "/ai/:path*",
+        "/settings/:path*",
+    ],
 };

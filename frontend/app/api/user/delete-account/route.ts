@@ -5,24 +5,30 @@ import { NextResponse } from "next/server";
 
 export async function DELETE(request: Request) {
     try {
-        const user = await getCurrentUser();
+        const user =
+            await getCurrentUser();
 
         if (!user) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Unauthorized.",
+                    message:
+                        "Unauthorized.",
                 },
                 { status: 401 }
             );
         }
 
-        const body = await request.json();
+        const body =
+            await request.json();
 
         const password =
-            typeof body.password === "string"
+            typeof body.password ===
+            "string"
                 ? body.password
                 : "";
+
+        /* ================= VALIDATION ================= */
 
         if (!password) {
             return NextResponse.json(
@@ -35,9 +41,8 @@ export async function DELETE(request: Request) {
             );
         }
 
-        /*
-         * Verify the user's current password
-         */
+        /* ================= VERIFY PASSWORD ================= */
+
         const isPasswordValid =
             await bcrypt.compare(
                 password,
@@ -55,12 +60,20 @@ export async function DELETE(request: Request) {
             );
         }
 
+        /* ================= DELETE USER ================= */
+
         /*
-         * Delete the user.
+         * The Prisma schema uses
+         * onDelete: Cascade, so the user's:
          *
-         * Your Prisma schema uses onDelete: Cascade
-         * for transactions, budgets and savings goals,
-         * so related records are deleted automatically.
+         * - Transactions
+         * - Budgets
+         * - Savings Goals
+         * - Savings Entries
+         * - AI Usage
+         * - Notifications
+         *
+         * are deleted automatically.
          */
         await prisma.user.delete({
             where: {
@@ -68,9 +81,8 @@ export async function DELETE(request: Request) {
             },
         });
 
-        /*
-         * Remove authentication cookie
-         */
+        /* ================= CLEAR AUTH COOKIE ================= */
+
         const response =
             NextResponse.json({
                 success: true,
@@ -83,11 +95,15 @@ export async function DELETE(request: Request) {
             "",
             {
                 httpOnly: true,
+
                 secure:
                     process.env.NODE_ENV ===
                     "production",
+
                 sameSite: "lax",
+
                 path: "/",
+
                 maxAge: 0,
             }
         );
