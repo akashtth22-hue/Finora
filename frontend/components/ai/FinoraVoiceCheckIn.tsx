@@ -102,6 +102,7 @@ type Recognition = {
   continuous: boolean;
   interimResults: boolean;
   lang: string;
+  maxAlternatives?: number;
 
   start(): void;
   stop(): void;
@@ -167,6 +168,15 @@ export default function FinoraVoiceCheckIn({
 
   const currentText =
     useRef("");
+
+  const finalText =
+    useRef("");
+
+  const processingRef =
+    useRef(false);
+
+  const manuallyStopping =
+    useRef(false);
 
   const answersRef =
     useRef<Record<string, string>>({});
@@ -245,91 +255,82 @@ export default function FinoraVoiceCheckIn({
 
   const processAnswer = useCallback(
     (answerText: string) => {
-      const answer =
-        answerText.trim();
+      const answer = answerText.trim();
 
-      if (!answer) {
+      if (!answer || processingRef.current) {
         setProcessing(false);
         return;
       }
 
-      const currentIndex =
-        indexRef.current;
-
-      const currentQuestion =
-        questions[currentIndex];
+      const currentIndex = indexRef.current;
+      const currentQuestion = questions[currentIndex];
 
       if (!currentQuestion) {
+        setProcessing(false);
         return;
       }
+
+      processingRef.current = true;
+      clearSilenceTimer();
 
       const nextAnswers = {
         ...answersRef.current,
-        [currentQuestion.key]:
-          answer,
+        [currentQuestion.key]: answer,
       };
 
-      answersRef.current =
-        nextAnswers;
-
+      answersRef.current = nextAnswers;
       setAnswers(nextAnswers);
-
       setProcessing(true);
+      setListening(false);
 
-      /* ================================================
-         LAST QUESTION
-      ================================================= */
+      try {
+        recognition.current?.abort();
+      } catch {
+        // Ignore browser cleanup errors.
+      }
 
-      if (
-        currentIndex ===
-        questions.length - 1
-      ) {
+      recognition.current = null;
+
+      if (currentIndex === questions.length - 1) {
         window.setTimeout(() => {
-          if (!isMounted.current) {
-            return;
-          }
+          if (!isMounted.current) return;
 
+          processingRef.current = false;
           setProcessing(false);
           setDone(true);
-
-          onComplete?.(
-            nextAnswers
-          );
-        }, 500);
+          onComplete?.(nextAnswers);
+        }, 650);
 
         return;
       }
 
-      /* ================================================
-         NEXT QUESTION
-      ================================================= */
-
-      const nextIndex =
-        currentIndex + 1;
-
-      indexRef.current =
-        nextIndex;
+      const nextIndex = currentIndex + 1;
+      indexRef.current = nextIndex;
 
       window.setTimeout(() => {
-        if (!isMounted.current) {
-          return;
-        }
+        if (!isMounted.current) return;
+
+        processingRef.current = false;
 
         setIndex(nextIndex);
         setText("");
         currentText.current = "";
+        finalText.current = "";
         setProcessing(false);
         setError("");
 
         window.setTimeout(() => {
-          speak(
-            questions[nextIndex]
-              .text
-          );
+          if (!isMounted.current) return;
+          speak(questions[nextIndex].text);
         }, 350);
-      }, 450);
+      }, 500);
     },
-    [onComplete, questions, speak]
+    [
+      clearSilenceTimer,
+      onComplete,
+      questions,
+      speak,
+    ]
   );
 
   /* =======================================================
@@ -340,31 +341,27 @@ export default function FinoraVoiceCheckIn({
     useCallback(() => {
       clearSilenceTimer();
 
-      silenceTimer.current =
-        window.setTimeout(() => {
-          if (
-            !isMounted.current
-          ) {
-            return;
-          }
+      silenceTimer.current = window.setTimeout(() => {
+        if (
+          !isMounted.current ||
+          processingRef.current
+        ) {
+          return;
+        }
 
-          const answer =
-            currentText.current.trim();
+        const answer =
+          (finalText.current || currentText.current).trim();
 
-          if (!answer) {
-            setListening(false);
-            setError(
-              "I didn't catch anything. Please try again."
-            );
-            return;
-          }
-
-          recognition.current?.stop();
-
+        if (!answer) {
           setListening(false);
+          setError(
+            "I couldn't hear a clear answer. Tap the microphone and try again."
+          );
+          return;
+        }
 
-          processAnswer(answer);
-        }, 1400);
+        processAnswer(answer);
+      }, 2200);
     }, [
       clearSilenceTimer,
       processAnswer,
@@ -375,10 +372,11 @@ export default function FinoraVoiceCheckIn({
   ======================================================= */
 
   const startListening =
-    useCallback(() => {
+    useCallback(async () => {
       if (
-        typeof window ===
-        "undefined"
+        typeof window === "undefined" ||
+        processingRef.current ||
+        speaking
       ) {
         return;
       }
@@ -389,150 +387,289 @@ export default function FinoraVoiceCheckIn({
 
       if (!Constructor) {
         setError(
-          "Voice recognition requires Chrome or Edge."
+          "Voice recognition is not supported in this browser. Please use the latest Chrome or Edge."
         );
         return;
       }
 
+      /*
+       * Explicitly request microphone permission first.
+       * This makes the deployed HTTPS version much more
+       * reliable and gives the user a useful error when
+       * the browser blocks the microphone.
+       */
+      if (navigator.mediaDevices?.getUserMedia) {
+        try {
+          const stream =
+            await navigator.mediaDevices.getUserMedia({
+              audio: true,
+            });
+
+          stream
+            .getTracks()
+            .forEach((track) => track.stop());
+        } catch (error) {
+          console.error(
+            "Finora microphone permission error:",
+            error
+          );
+
+          setError(
+            "Microphone access is blocked. Allow microphone permission for Finora, then try again."
+          );
+          return;
+        }
+      }
+
       clearSilenceTimer();
 
-      recognition.current?.abort();
+      try {
+        recognition.current?.abort();
+      } catch {
+        // Ignore old recognition cleanup errors.
+      }
 
-      const r =
-        new Constructor();
+      const r = new Constructor();
 
       r.continuous = true;
       r.interimResults = true;
-      r.lang = "en-IN";
+      r.lang =
+        navigator.language?.toLowerCase() === "en-us"
+          ? "en-US"
+          : "en-IN";
+
+      manuallyStopping.current = false;
+      currentText.current = "";
+      finalText.current = "";
 
       r.onstart = () => {
-        if (!isMounted.current) {
-          return;
-        }
+        if (!isMounted.current) return;
 
         setListening(true);
         setError("");
       };
 
-      r.onresult = (
-        event
-      ) => {
-        let value = "";
+      r.onresult = (event) => {
+        if (!isMounted.current) return;
+
+        let interim = "";
+        let finals = "";
+
+        const startIndex = 0;
 
         for (
-          let i = 0;
+          let i = startIndex;
           i < event.results.length;
           i++
         ) {
-          value +=
-            event.results[i][0]
-              ?.transcript || "";
+          const result = event.results[i];
+
+          const transcript =
+            result?.[0]?.transcript?.trim() || "";
+
+          if (!transcript) continue;
+
+          if (result.isFinal) {
+            finals += `${transcript} `;
+          } else {
+            interim += `${transcript} `;
+          }
         }
 
-        const cleaned =
-          value.trim();
+        /*
+         * Only append FINAL results to finalText.
+         * The previous implementation concatenated every
+         * result, including interim results, which can cause
+         * duplicated transcripts.
+         */
+        if (finals) {
+          finalText.current =
+            `${finalText.current} ${finals}`
+              .replace(/\s+/g, " ")
+              .trim();
+        }
 
-        currentText.current =
-          cleaned;
+        const combined =
+          `${finalText.current} ${interim}`
+            .replace(/\s+/g, " ")
+            .trim();
 
-        setText(cleaned);
-
-        if (cleaned) {
+        if (combined) {
+          currentText.current = combined;
+          setText(combined);
+          setError("");
           scheduleSilenceCapture();
         }
       };
 
-      r.onerror = (
-        event
-      ) => {
+      r.onerror = (event) => {
+        if (!isMounted.current) return;
+
         clearSilenceTimer();
 
+        const code = event.error || "unknown";
+
+        console.warn(
+          "Finora SpeechRecognition error:",
+          code
+        );
+
+        if (code === "aborted") {
+          setListening(false);
+          return;
+        }
+
         if (
-          !isMounted.current
+          code === "not-allowed" ||
+          code === "service-not-allowed"
         ) {
+          setListening(false);
+          setError(
+            "Microphone permission was denied. Allow microphone access in your browser settings and try again."
+          );
+          return;
+        }
+
+        if (code === "audio-capture") {
+          setListening(false);
+          setError(
+            "Your microphone could not be accessed. Check that your microphone is connected and not being used by another app."
+          );
+          return;
+        }
+
+        if (code === "network") {
+          setListening(false);
+          setError(
+            "Speech recognition needs an internet connection. Please check your connection and try again."
+          );
+          return;
+        }
+
+        if (code === "no-speech") {
+          const answer =
+            (
+              finalText.current ||
+              currentText.current
+            ).trim();
+
+          if (answer) {
+            setListening(false);
+            processAnswer(answer);
+            return;
+          }
+
+          setListening(false);
+          setError(
+            "I didn't hear any speech. Tap the microphone and speak after it says Listening."
+          );
           return;
         }
 
         setListening(false);
-
-        if (
-          event.error ===
-          "not-allowed"
-        ) {
-          setError(
-            "Microphone permission was denied."
-          );
-        } else if (
-          event.error ===
-          "no-speech"
-        ) {
-          setError(
-            "I didn't hear you. Please try again."
-          );
-        } else {
-          setError(
-            "I couldn't hear that. Please try again."
-          );
-        }
+        setError(
+          "I couldn't access speech recognition. Please try again."
+        );
       };
 
       r.onend = () => {
+        if (!isMounted.current) return;
+
+        clearSilenceTimer();
+
+        const answer =
+          (
+            finalText.current ||
+            currentText.current
+          ).trim();
+
+        /*
+         * Chrome can end recognition automatically.
+         * If words were captured, don't throw them away.
+         */
         if (
-          !isMounted.current
+          answer &&
+          !processingRef.current &&
+          !manuallyStopping.current
         ) {
+          setListening(false);
+          processAnswer(answer);
           return;
         }
 
         setListening(false);
 
-        const answer =
-          currentText.current.trim();
-
         if (
-          answer &&
-          !processing &&
-          !done
+          !answer &&
+          !manuallyStopping.current &&
+          !processingRef.current
         ) {
-          processAnswer(answer);
+          setError(
+            "I didn't hear any speech. Tap the microphone and speak clearly."
+          );
         }
       };
 
-      recognition.current =
-        r;
+      recognition.current = r;
 
       setText("");
       currentText.current = "";
+      finalText.current = "";
       setError("");
 
       try {
         r.start();
-      } catch {
+      } catch (error) {
+        console.error(
+          "Finora recognition start error:",
+          error
+        );
+
+        recognition.current = null;
         setListening(false);
         setError(
-          "Unable to start the microphone. Please try again."
+          "Unable to start voice recognition. Please tap the microphone again."
         );
       }
     }, [
       clearSilenceTimer,
-      done,
       processAnswer,
-      processing,
       scheduleSilenceCapture,
+      speaking,
     ]);
-
-  /* =======================================================
-     STOP LISTENING
-  ======================================================= */
 
   const stopListening =
     useCallback(() => {
+      manuallyStopping.current = true;
       clearSilenceTimer();
 
-      recognition.current?.stop();
+      const answer =
+        (
+          finalText.current ||
+          currentText.current
+        ).trim();
+
+      try {
+        recognition.current?.stop();
+      } catch {
+        // Ignore browser cleanup errors.
+      }
 
       setListening(false);
+
+      /*
+       * If the user manually stops after speaking,
+       * save the captured answer immediately.
+       */
+      if (
+        answer &&
+        !processingRef.current
+      ) {
+        processAnswer(answer);
+      }
     }, [
       clearSilenceTimer,
+      processAnswer,
     ]);
 
   /* =======================================================
@@ -578,11 +715,13 @@ export default function FinoraVoiceCheckIn({
       clearSilenceTimer();
 
       recognition.current?.abort();
+      recognition.current = null;
+      processingRef.current = false;
 
       if (
         typeof window !==
         "undefined"
-      ) {
+      ){
         window.speechSynthesis?.cancel();
       }
     };
@@ -598,11 +737,13 @@ export default function FinoraVoiceCheckIn({
     clearSilenceTimer();
 
     recognition.current?.abort();
+    recognition.current = null;
+    processingRef.current = false;
 
     if (
       typeof window !==
       "undefined"
-    ) {
+    ){
       window.speechSynthesis?.cancel();
     }
 
