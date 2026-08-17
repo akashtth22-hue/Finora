@@ -2,6 +2,77 @@ import { getCurrentUser } from "@/lib/getCurrentUser";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+/* =========================================================
+   DATE HELPERS
+========================================================= */
+
+/**
+ * Finora currently targets India.
+ *
+ * We normalize the check-in date to an IST calendar day so
+ * "today's check-in" doesn't accidentally change around UTC
+ * midnight.
+ */
+function getIndiaDayRange(date = new Date()) {
+    const formatter = new Intl.DateTimeFormat(
+        "en-US",
+        {
+            timeZone: "Asia/Kolkata",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }
+    );
+
+    const parts = formatter.formatToParts(date);
+
+    const year = Number(
+        parts.find(
+            (part) => part.type === "year"
+        )?.value
+    );
+
+    const month = Number(
+        parts.find(
+            (part) => part.type === "month"
+        )?.value
+    );
+
+    const day = Number(
+        parts.find(
+            (part) => part.type === "day"
+        )?.value
+    );
+
+    /**
+     * Create the corresponding UTC range for
+     * the India calendar day.
+     *
+     * IST = UTC + 5:30
+     */
+    const start = new Date(
+        Date.UTC(
+            year,
+            month - 1,
+            day,
+            0,
+            0,
+            0,
+            0
+        ) - 5.5 * 60 * 60 * 1000
+    );
+
+    const end = new Date(
+        start.getTime() +
+            24 * 60 * 60 * 1000
+    );
+
+    return {
+        start,
+        end,
+    };
+}
+
 function getMonthRange(date = new Date()) {
     const start = new Date(
         date.getFullYear(),
@@ -42,15 +113,26 @@ function getPercentageChange(
 ) {
     if (previous === 0) {
         if (current === 0) return 0;
+
         return 100;
     }
 
-    return ((current - previous) / previous) * 100;
+    return (
+        ((current - previous) /
+            previous) *
+        100
+    );
 }
 
 function round(value: number) {
-    return Math.round(value * 100) / 100;
+    return (
+        Math.round(value * 100) / 100
+    );
 }
+
+/* =========================================================
+   GET DASHBOARD
+========================================================= */
 
 export async function GET() {
     try {
@@ -58,7 +140,8 @@ export async function GET() {
            AUTHENTICATION
         ====================================================== */
 
-        const user = await getCurrentUser();
+        const user =
+            await getCurrentUser();
 
         if (!user) {
             return NextResponse.json(
@@ -86,10 +169,86 @@ export async function GET() {
             end: previousMonthEnd,
         } = getPreviousMonthRange();
 
-        /* =====================================================
-           FETCH DATA
+        const {
+            start: todayStart,
+            end: todayEnd,
+        } = getIndiaDayRange(now);
 
-           We fetch the user's data only.
+        /* =====================================================
+           VOICE AI CHECK-IN STATUS
+        ====================================================== */
+
+        const [
+            onboardingCheckIn,
+            todayDailyCheckIn,
+        ] = await Promise.all([
+            prisma.voiceCheckIn.findFirst({
+                where: {
+                    userId: user.id,
+                    type: "ONBOARDING",
+                    status: "COMPLETED",
+                },
+
+                orderBy: {
+                    completedAt: "desc",
+                },
+            }),
+
+            prisma.voiceCheckIn.findFirst({
+                where: {
+                    userId: user.id,
+                    type: "DAILY",
+                    status: "COMPLETED",
+
+                    checkInDate: {
+                        gte: todayStart,
+                        lt: todayEnd,
+                    },
+                },
+
+                orderBy: {
+                    completedAt: "desc",
+                },
+            }),
+        ]);
+
+        /**
+         * New user logic:
+         *
+         * We do NOT use transaction count.
+         * We do NOT use localStorage.
+         *
+         * If onboarding has never been completed,
+         * Finora considers onboarding incomplete.
+         */
+        const isNewUser =
+            !onboardingCheckIn;
+
+        /**
+         * Priority:
+         *
+         * 1. Complete onboarding first.
+         * 2. Otherwise show today's daily check-in
+         *    if it hasn't already been completed.
+         */
+        let voiceCheckInType:
+            | "ONBOARDING"
+            | "DAILY"
+            | null = null;
+
+        if (isNewUser) {
+            voiceCheckInType =
+                "ONBOARDING";
+        } else if (!todayDailyCheckIn) {
+            voiceCheckInType =
+                "DAILY";
+        }
+
+        const shouldShowVoiceCheckIn =
+            voiceCheckInType !== null;
+
+        /* =====================================================
+           FETCH FINANCIAL DATA
         ====================================================== */
 
         const [
@@ -162,7 +321,7 @@ export async function GET() {
         ]);
 
         /* =====================================================
-           CURRENT MONTH INCOME / EXPENSE
+           CURRENT MONTH INCOME
         ====================================================== */
 
         const currentIncome =
@@ -183,6 +342,10 @@ export async function GET() {
                         ),
                     0
                 );
+
+        /* =====================================================
+           CURRENT MONTH EXPENSE
+        ====================================================== */
 
         const currentExpenses =
             currentMonthTransactions
@@ -208,7 +371,7 @@ export async function GET() {
             currentExpenses;
 
         /* =====================================================
-           PREVIOUS MONTH INCOME / EXPENSE
+           PREVIOUS MONTH
         ====================================================== */
 
         const previousIncome =
@@ -255,9 +418,6 @@ export async function GET() {
 
         /* =====================================================
            TOTAL BALANCE
-
-           Income - expenses across all recorded
-           transactions.
         ====================================================== */
 
         const totalIncome =
@@ -387,6 +547,7 @@ export async function GET() {
                         amount,
                     ]) => ({
                         name: category,
+
                         value: round(
                             amount
                         ),
@@ -604,8 +765,6 @@ export async function GET() {
 
         /* =====================================================
            PRIMARY SAVINGS GOAL
-
-           Most recently created goal.
         ====================================================== */
 
         const primarySavingsGoal =
@@ -615,10 +774,7 @@ export async function GET() {
                 : null;
 
         /* =====================================================
-           SIMPLE FINANCIAL INSIGHT
-
-           This is intentionally deterministic.
-           We should NOT invent AI numbers here.
+           FINORA INSIGHT
         ====================================================== */
 
         const biggestExpense =
@@ -632,7 +788,8 @@ export async function GET() {
 
         if (
             currentIncome > 0 &&
-            currentExpenses > currentIncome
+            currentExpenses >
+                currentIncome
         ) {
             aiInsightText =
                 "Your expenses are currently higher than your income this month. Focus on reducing non-essential spending and protecting your cash flow.";
@@ -660,6 +817,30 @@ export async function GET() {
 
         return NextResponse.json({
             success: true,
+
+            /* =================================================
+               VOICE AI
+            ================================================= */
+
+            voiceCheckIn: {
+                isNewUser,
+
+                shouldShow:
+                    shouldShowVoiceCheckIn,
+
+                type:
+                    voiceCheckInType,
+
+                onboardingCompleted:
+                    Boolean(
+                        onboardingCheckIn
+                    ),
+
+                todayCompleted:
+                    Boolean(
+                        todayDailyCheckIn
+                    ),
+            },
 
             month: {
                 year:

@@ -398,7 +398,8 @@ export const ModelName = {
   AiUsage: 'AiUsage',
   Notification: 'Notification',
   AIConversation: 'AIConversation',
-  AIMessage: 'AIMessage'
+  AIMessage: 'AIMessage',
+  VoiceCheckIn: 'VoiceCheckIn'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -414,7 +415,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "transaction" | "budget" | "savingsGoal" | "savingsEntry" | "aiUsage" | "notification" | "aIConversation" | "aIMessage"
+    modelProps: "user" | "transaction" | "budget" | "savingsGoal" | "savingsEntry" | "aiUsage" | "notification" | "aIConversation" | "aIMessage" | "voiceCheckIn"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1084,6 +1085,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    VoiceCheckIn: {
+      payload: Prisma.$VoiceCheckInPayload<ExtArgs>
+      fields: Prisma.VoiceCheckInFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.VoiceCheckInFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceCheckInPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.VoiceCheckInFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceCheckInPayload>
+        }
+        findFirst: {
+          args: Prisma.VoiceCheckInFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceCheckInPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.VoiceCheckInFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceCheckInPayload>
+        }
+        findMany: {
+          args: Prisma.VoiceCheckInFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceCheckInPayload>[]
+        }
+        create: {
+          args: Prisma.VoiceCheckInCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceCheckInPayload>
+        }
+        createMany: {
+          args: Prisma.VoiceCheckInCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.VoiceCheckInCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceCheckInPayload>[]
+        }
+        delete: {
+          args: Prisma.VoiceCheckInDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceCheckInPayload>
+        }
+        update: {
+          args: Prisma.VoiceCheckInUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceCheckInPayload>
+        }
+        deleteMany: {
+          args: Prisma.VoiceCheckInDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.VoiceCheckInUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.VoiceCheckInUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceCheckInPayload>[]
+        }
+        upsert: {
+          args: Prisma.VoiceCheckInUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$VoiceCheckInPayload>
+        }
+        aggregate: {
+          args: Prisma.VoiceCheckInAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateVoiceCheckIn>
+        }
+        groupBy: {
+          args: Prisma.VoiceCheckInGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.VoiceCheckInGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.VoiceCheckInCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.VoiceCheckInCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1239,12 +1314,34 @@ export const AIMessageScalarFieldEnum = {
 export type AIMessageScalarFieldEnum = (typeof AIMessageScalarFieldEnum)[keyof typeof AIMessageScalarFieldEnum]
 
 
+export const VoiceCheckInScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  type: 'type',
+  status: 'status',
+  checkInDate: 'checkInDate',
+  answers: 'answers',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type VoiceCheckInScalarFieldEnum = (typeof VoiceCheckInScalarFieldEnum)[keyof typeof VoiceCheckInScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
 } as const
 
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
 
 
 export const QueryMode = {
@@ -1261,6 +1358,15 @@ export const NullsOrder = {
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 
 
 
@@ -1389,6 +1495,48 @@ export type ListEnumAIMessageRoleFieldRefInput<$PrismaModel> = FieldRefInputType
 
 
 /**
+ * Reference to a field of type 'VoiceCheckInType'
+ */
+export type EnumVoiceCheckInTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'VoiceCheckInType'>
+    
+
+
+/**
+ * Reference to a field of type 'VoiceCheckInType[]'
+ */
+export type ListEnumVoiceCheckInTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'VoiceCheckInType[]'>
+    
+
+
+/**
+ * Reference to a field of type 'VoiceCheckInStatus'
+ */
+export type EnumVoiceCheckInStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'VoiceCheckInStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'VoiceCheckInStatus[]'
+ */
+export type ListEnumVoiceCheckInStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'VoiceCheckInStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Json'
+ */
+export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
+    
+
+
+/**
+ * Reference to a field of type 'QueryMode'
+ */
+export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
+    
+
+
+/**
  * Reference to a field of type 'Float'
  */
 export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -1497,6 +1645,7 @@ export type GlobalOmitConfig = {
   notification?: Prisma.NotificationOmit
   aIConversation?: Prisma.AIConversationOmit
   aIMessage?: Prisma.AIMessageOmit
+  voiceCheckIn?: Prisma.VoiceCheckInOmit
 }
 
 /* Types for Logging */

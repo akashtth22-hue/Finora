@@ -32,6 +32,7 @@ import StatCard from "@/components/dashboard/StatCard";
 import AIInsight from "@/components/dashboard/AIInsight";
 import RecentTransactions from "@/components/dashboard/RecentTransactions";
 import ExpenseChart from "@/components/dashboard/ExpenseChart";
+import FinoraVoiceCheckIn from "@/components/ai/FinoraVoiceCheckIn";
 
 /* =========================================================
    TYPES
@@ -66,6 +67,14 @@ type SavingsGoal = {
 
 type DashboardData = {
   success: boolean;
+
+  voiceCheckIn: {
+    isNewUser: boolean;
+    shouldShow: boolean;
+    type: "ONBOARDING" | "DAILY" | null;
+    onboardingCompleted: boolean;
+    todayCompleted: boolean;
+  };
 
   month: {
     year: number;
@@ -222,6 +231,12 @@ export default function DashboardPage() {
   const [error, setError] =
     useState("");
 
+  const [voiceCheckInOpen, setVoiceCheckInOpen] =
+    useState(false);
+
+  const [voiceCheckInMode, setVoiceCheckInMode] =
+    useState<"new" | "daily">("daily");
+
   /* =======================================================
      LOAD DASHBOARD
   ======================================================= */
@@ -250,11 +265,29 @@ export default function DashboardPage() {
       if (!response.ok || !result.success) {
         throw new Error(
           result.message ||
-            "Unable to load dashboard."
+          "Unable to load dashboard."
         );
       }
 
       setDashboard(result);
+
+      /* ================================================
+         VOICE AI CHECK-IN
+      ================================================= */
+
+      if (
+        result.voiceCheckIn?.shouldShow === true &&
+        (result.voiceCheckIn.type === "ONBOARDING" ||
+          result.voiceCheckIn.type === "DAILY")
+      ) {
+        setVoiceCheckInMode(
+          result.voiceCheckIn.type === "ONBOARDING"
+            ? "new"
+            : "daily"
+        );
+
+        setVoiceCheckInOpen(true);
+      }
 
       /* ================================================
          LOAD FULL TRANSACTION HISTORY
@@ -335,6 +368,69 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  }
+
+  /* =======================================================
+     COMPLETE VOICE CHECK-IN
+  ======================================================= */
+
+  async function handleVoiceCheckInComplete(
+    answers: Record<string, string>
+  ) {
+    const mode =
+      voiceCheckInMode === "new"
+        ? "ONBOARDING"
+        : "DAILY";
+
+    try {
+      const response = await fetch(
+        "/api/voice-checkin",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            type: mode,
+            answers,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ||
+            "Unable to save voice check-in."
+        );
+      }
+
+      /*
+       * Close immediately after the server confirms
+       * the check-in has been stored.
+       */
+      setVoiceCheckInOpen(false);
+
+      /*
+       * Refresh dashboard data so the UI reflects
+       * the completed check-in and any future financial
+       * processing can be reflected here.
+       */
+      await loadDashboard();
+    } catch (error) {
+      console.error(
+        "Voice check-in save error:",
+        error
+      );
+
+      /*
+       * Keep the modal open if persistence fails.
+       * This prevents losing the user's captured answers.
+       */
+      throw error;
     }
   }
 
@@ -439,8 +535,8 @@ export default function DashboardPage() {
   const balanceChange =
     summary.income > 0
       ? (summary.savings /
-          summary.income) *
-        100
+        summary.income) *
+      100
       : 0;
 
   /* =======================================================
@@ -601,11 +697,10 @@ export default function DashboardPage() {
                     </span>
 
                     <span
-                      className={`mb-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                        balanceChange >= 0
+                      className={`mb-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ${balanceChange >= 0
                           ? "bg-emerald-400/15 text-emerald-300"
                           : "bg-red-400/15 text-red-300"
-                      }`}
+                        }`}
                     >
 
                       {balanceChange >= 0 ? (
@@ -710,13 +805,12 @@ export default function DashboardPage() {
                 value={formatCurrency(
                   summary.income
                 )}
-                change={`${
-                  changes.income >= 0
+                change={`${changes.income >= 0
                     ? "+"
                     : ""
-                }${changes.income.toFixed(
-                  1
-                )}% from last month`}
+                  }${changes.income.toFixed(
+                    1
+                  )}% from last month`}
                 positive={
                   changes.income >= 0
                 }
@@ -736,13 +830,12 @@ export default function DashboardPage() {
                 value={formatCurrency(
                   summary.expenses
                 )}
-                change={`${
-                  changes.expenses >= 0
+                change={`${changes.expenses >= 0
                     ? "+"
                     : ""
-                }${changes.expenses.toFixed(
-                  1
-                )}% from last month`}
+                  }${changes.expenses.toFixed(
+                    1
+                  )}% from last month`}
                 positive={
                   changes.expenses <= 0
                 }
@@ -1317,15 +1410,14 @@ export default function DashboardPage() {
                 <div className="mt-5 h-3 overflow-hidden rounded-full bg-gray-100">
 
                   <div
-                    className={`h-full rounded-full transition-all duration-1000 ${
-                      budget.status ===
-                      "Exceeded"
+                    className={`h-full rounded-full transition-all duration-1000 ${budget.status ===
+                        "Exceeded"
                         ? "bg-red-500"
                         : budget.status ===
                           "Warning"
-                        ? "bg-orange-500"
-                        : "bg-gradient-to-r from-purple-600 to-violet-500"
-                    }`}
+                          ? "bg-orange-500"
+                          : "bg-gradient-to-r from-purple-600 to-violet-500"
+                      }`}
                     style={{
                       width: `${Math.min(
                         Math.max(
@@ -1351,13 +1443,13 @@ export default function DashboardPage() {
                   <span>
                     {budget.remaining >= 0
                       ? `${formatCurrency(
-                          budget.remaining
-                        )} remaining`
+                        budget.remaining
+                      )} remaining`
                       : `${formatCurrency(
-                          Math.abs(
-                            budget.remaining
-                          )
-                        )} over budget`}
+                        Math.abs(
+                          budget.remaining
+                        )
+                      )} over budget`}
                   </span>
 
                 </div>
@@ -1367,15 +1459,14 @@ export default function DashboardPage() {
               <div className="flex items-center gap-5 rounded-2xl border border-gray-100 bg-gray-50/70 p-5 lg:min-w-[290px]">
 
                 <div
-                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
-                    budget.status ===
-                    "Exceeded"
+                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${budget.status ===
+                      "Exceeded"
                       ? "bg-red-100 text-red-600"
                       : budget.status ===
                         "Warning"
-                      ? "bg-orange-100 text-orange-600"
-                      : "bg-emerald-100 text-emerald-600"
-                  }`}
+                        ? "bg-orange-100 text-orange-600"
+                        : "bg-emerald-100 text-emerald-600"
+                    }`}
                 >
                   <ShieldCheck size={24} />
                 </div>
@@ -1387,15 +1478,14 @@ export default function DashboardPage() {
                   </p>
 
                   <p
-                    className={`mt-1 text-lg font-black ${
-                      budget.status ===
-                      "Exceeded"
+                    className={`mt-1 text-lg font-black ${budget.status ===
+                        "Exceeded"
                         ? "text-red-600"
                         : budget.status ===
                           "Warning"
-                        ? "text-orange-600"
-                        : "text-emerald-600"
-                    }`}
+                          ? "text-orange-600"
+                          : "text-emerald-600"
+                      }`}
                   >
                     {budget.status}
                   </p>
@@ -1474,6 +1564,23 @@ export default function DashboardPage() {
         </div>
 
       </div>
+
+      {/* =================================================
+          FINORA VOICE CHECK-IN
+      ================================================== */}
+
+      {voiceCheckInOpen && (
+        <FinoraVoiceCheckIn
+          mode={voiceCheckInMode}
+          open={voiceCheckInOpen}
+          onClose={() =>
+            setVoiceCheckInOpen(false)
+          }
+          onComplete={
+            handleVoiceCheckInComplete
+          }
+        />
+      )}
 
     </main>
   );

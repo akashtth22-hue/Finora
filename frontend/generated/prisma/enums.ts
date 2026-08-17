@@ -41,3 +41,20 @@ export const AIMessageRole = {
 } as const
 
 export type AIMessageRole = (typeof AIMessageRole)[keyof typeof AIMessageRole]
+
+
+export const VoiceCheckInType = {
+  ONBOARDING: 'ONBOARDING',
+  DAILY: 'DAILY'
+} as const
+
+export type VoiceCheckInType = (typeof VoiceCheckInType)[keyof typeof VoiceCheckInType]
+
+
+export const VoiceCheckInStatus = {
+  IN_PROGRESS: 'IN_PROGRESS',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED'
+} as const
+
+export type VoiceCheckInStatus = (typeof VoiceCheckInStatus)[keyof typeof VoiceCheckInStatus]

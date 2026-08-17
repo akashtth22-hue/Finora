@@ -62,3 +62,8 @@ export type AIConversation = Prisma.AIConversationModel
  * 
  */
 export type AIMessage = Prisma.AIMessageModel
+/**
+ * Model VoiceCheckIn
+ * 
+ */
+export type VoiceCheckIn = Prisma.VoiceCheckInModel

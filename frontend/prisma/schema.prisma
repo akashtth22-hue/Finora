@@ -17,13 +17,17 @@ model User {
   image           String?
   isVerified      Boolean          @default(false)
   phone           String?
-  updatedAt       DateTime         @default(now()) @updatedAt
+  updatedAt       DateTime         @default(now())
+
   aiConversations AIConversation[]
   aiUsage         AiUsage?
   budgets         Budget[]
   notifications   Notification[]
   savingsGoals    SavingsGoal[]
   transactions    Transaction[]
+
+  // Finora Voice AI
+  voiceCheckIns   VoiceCheckIn[]
 }
 
 model Transaction {
@@ -128,6 +132,41 @@ model AIMessage {
   @@index([conversationId, createdAt])
 }
 
+/* =========================================================
+   FINORA VOICE CHECK-IN
+========================================================= */
+
+model VoiceCheckIn {
+  id          String              @id @default(cuid())
+
+  userId      String
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        VoiceCheckInType
+  status      VoiceCheckInStatus @default(COMPLETED)
+
+  // The day this check-in belongs to.
+  // For daily check-ins this is normalized to the user's
+  // check-in date.
+  checkInDate DateTime
+
+  // Raw answers captured from the voice conversation.
+  answers     Json
+
+  completedAt DateTime?
+
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([userId, type, checkInDate])
+  @@index([userId, checkInDate])
+  @@index([userId, type])
+}
+
+/* =========================================================
+   ENUMS
+========================================================= */
+
 enum TransactionType {
   INCOME
   EXPENSE
@@ -148,4 +187,15 @@ enum NotificationType {
 enum AIMessageRole {
   USER
   ASSISTANT
+}
+
+enum VoiceCheckInType {
+  ONBOARDING
+  DAILY
+}
+
+enum VoiceCheckInStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
