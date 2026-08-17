@@ -15,7 +15,7 @@ import {
   BarChart3,
   Sparkles,
   RefreshCw,
-  Activity,
+  ShieldCheck,
 } from "lucide-react";
 
 import {
@@ -33,13 +33,13 @@ import AIInsight from "@/components/dashboard/AIInsight";
 import RecentTransactions from "@/components/dashboard/RecentTransactions";
 import ExpenseChart from "@/components/dashboard/ExpenseChart";
 
-/* =====================================================
+/* =========================================================
    TYPES
-===================================================== */
+========================================================= */
 
 type TransactionType = "INCOME" | "EXPENSE";
 
-type DashboardTransaction = {
+type Transaction = {
   id: string;
   title: string;
   category: string;
@@ -48,7 +48,7 @@ type DashboardTransaction = {
   date: string;
 };
 
-type ExpenseCategory = {
+type ExpenseItem = {
   name: string;
   value: number;
   percentage: number;
@@ -64,7 +64,7 @@ type SavingsGoal = {
   deadline: string | null;
 };
 
-type DashboardResponse = {
+type DashboardData = {
   success: boolean;
 
   month: {
@@ -87,9 +87,9 @@ type DashboardResponse = {
     savings: number;
   };
 
-  expenseByCategory: ExpenseCategory[];
+  expenseByCategory: ExpenseItem[];
 
-  recentTransactions: DashboardTransaction[];
+  recentTransactions: Transaction[];
 
   budget: {
     total: number;
@@ -105,28 +105,28 @@ type DashboardResponse = {
 
   aiInsight: {
     text: string;
-    biggestExpense: ExpenseCategory | null;
     savingsRate: number;
+    biggestExpense: ExpenseItem | null;
   };
 };
 
-type MonthlyChartItem = {
+type ChartItem = {
   month: string;
   income: number;
   expenses: number;
 };
 
-/* =====================================================
+/* =========================================================
    HELPERS
-===================================================== */
+========================================================= */
 
-function formatCurrency(value: number): string {
+function formatCurrency(value: number) {
   return `₹${Number(value || 0).toLocaleString("en-IN", {
     maximumFractionDigits: 2,
   })}`;
 }
 
-function formatShortCurrency(value: number): string {
+function formatCompactCurrency(value: number) {
   const amount = Number(value || 0);
 
   if (amount >= 100000) {
@@ -140,16 +140,16 @@ function formatShortCurrency(value: number): string {
   return `₹${Math.round(amount)}`;
 }
 
-/* =====================================================
-   MONTHLY CHART
-===================================================== */
+/* =========================================================
+   MONTHLY CHART DATA
+========================================================= */
 
 function buildMonthlyChart(
-  transactions: DashboardTransaction[]
-): MonthlyChartItem[] {
+  transactions: Transaction[]
+): ChartItem[] {
   const now = new Date();
 
-  const months: MonthlyChartItem[] = [];
+  const months: ChartItem[] = [];
 
   for (let i = 5; i >= 0; i--) {
     const date = new Date(
@@ -168,20 +168,25 @@ function buildMonthlyChart(
   }
 
   transactions.forEach((transaction) => {
-    const transactionDate = new Date(transaction.date);
+    const date = new Date(transaction.date);
 
-    const monthDifference =
-      (now.getFullYear() -
-        transactionDate.getFullYear()) *
-        12 +
-      (now.getMonth() -
-        transactionDate.getMonth());
-
-    if (monthDifference < 0 || monthDifference > 5) {
+    if (Number.isNaN(date.getTime())) {
       return;
     }
 
-    const index = 5 - monthDifference;
+    const difference =
+      (now.getFullYear() - date.getFullYear()) * 12 +
+      (now.getMonth() - date.getMonth());
+
+    if (difference < 0 || difference > 5) {
+      return;
+    }
+
+    const index = 5 - difference;
+
+    if (!months[index]) {
+      return;
+    }
 
     const amount = Number(transaction.amount || 0);
 
@@ -195,79 +200,80 @@ function buildMonthlyChart(
   return months;
 }
 
-/* =====================================================
-   PAGE
-===================================================== */
+/* =========================================================
+   DASHBOARD PAGE
+========================================================= */
 
 export default function DashboardPage() {
   const [dashboard, setDashboard] =
-    useState<DashboardResponse | null>(null);
+    useState<DashboardData | null>(null);
 
-  const [allTransactions, setAllTransactions] =
-    useState<DashboardTransaction[]>([]);
+  const [
+    allTransactions,
+    setAllTransactions,
+  ] = useState<Transaction[]>([]);
 
-  const [loading, setLoading] = useState(true);
-
-  const [error, setError] = useState("");
+  const [loading, setLoading] =
+    useState(true);
 
   const [refreshing, setRefreshing] =
     useState(false);
 
-  /* =====================================================
+  const [error, setError] =
+    useState("");
+
+  /* =======================================================
      LOAD DASHBOARD
-  ====================================================== */
+  ======================================================= */
 
   async function loadDashboard() {
     try {
+      setError("");
+
       if (dashboard) {
         setRefreshing(true);
       } else {
         setLoading(true);
       }
 
-      setError("");
+      const response = await fetch(
+        "/api/dashboard",
+        {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        }
+      );
 
-      const response = await fetch("/api/dashboard", {
-        method: "GET",
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      const result =
-        (await response.json()) as DashboardResponse;
+      const result = await response.json();
 
       if (!response.ok || !result.success) {
         throw new Error(
-          "message" in result &&
-            typeof (
-              result as {
-                message?: unknown;
-              }
-            ).message === "string"
-            ? (
-                result as {
-                  message: string;
-                }
-              ).message
-            : "Unable to load dashboard."
+          result.message ||
+            "Unable to load dashboard."
         );
       }
 
       setDashboard(result);
 
-      /* ================= TRANSACTIONS ================= */
+      /* ================================================
+         LOAD FULL TRANSACTION HISTORY
+      ================================================= */
 
       try {
-        const transactionResponse =
-          await fetch("/api/transactions", {
-            method: "GET",
-            credentials: "include",
-            cache: "no-store",
-          });
+        const transactionsResponse =
+          await fetch(
+            "/api/transactions",
+            {
+              method: "GET",
+              credentials: "include",
+              cache: "no-store",
+            }
+          );
 
-        if (transactionResponse.ok) {
+        if (transactionsResponse.ok) {
           const transactionResult =
-            await transactionResponse.json();
+            await transactionsResponse.json();
 
           if (
             transactionResult.success &&
@@ -275,7 +281,7 @@ export default function DashboardPage() {
               transactionResult.transactions
             )
           ) {
-            setAllTransactions(
+            const mapped =
               transactionResult.transactions.map(
                 (transaction: {
                   id: string;
@@ -289,60 +295,58 @@ export default function DashboardPage() {
                   title:
                     transaction.description ||
                     transaction.category,
-                  category: transaction.category,
+                  category:
+                    transaction.category,
                   type: transaction.type,
                   amount: Number(
-                    transaction.amount
+                    transaction.amount || 0
                   ),
                   date: transaction.date,
                 })
-              )
-            );
+              );
+
+            setAllTransactions(mapped);
           } else {
             setAllTransactions(
-              result.recentTransactions
+              result.recentTransactions || []
             );
           }
         } else {
           setAllTransactions(
-            result.recentTransactions
+            result.recentTransactions || []
           );
         }
       } catch {
         setAllTransactions(
-          result.recentTransactions
+          result.recentTransactions || []
         );
       }
-    } catch (err: unknown) {
+    } catch (err) {
       console.error(
         "Dashboard loading error:",
         err
       );
 
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError(
-          "Unable to load dashboard."
-        );
-      }
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load dashboard."
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }
 
-  /* =====================================================
-     INITIAL LOAD
-  ====================================================== */
-
   useEffect(() => {
     loadDashboard();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* =====================================================
-     CHART DATA
-  ====================================================== */
+  /* =======================================================
+     CHART
+  ======================================================= */
 
   const monthlyData = useMemo(
     () =>
@@ -352,78 +356,78 @@ export default function DashboardPage() {
     [allTransactions]
   );
 
-  /* =====================================================
-     LOADING
-  ====================================================== */
+  /* =======================================================
+     LOADING STATE
+  ======================================================= */
 
   if (loading) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-[#f8f7fb] p-4 sm:p-6 lg:p-8">
-        <div className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-purple-300/10 blur-3xl" />
+      <main className="min-h-screen bg-[#f7f6fb] px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1600px]">
 
-        <div className="pointer-events-none absolute right-0 top-1/3 h-80 w-80 rounded-full bg-indigo-300/10 blur-3xl" />
+          <div className="h-[150px] animate-pulse rounded-[24px] bg-white" />
 
-        <div className="relative space-y-6">
-          <div className="h-40 animate-pulse rounded-[28px] bg-white/80" />
-
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
             {Array.from({ length: 4 }).map(
               (_, index) => (
                 <div
                   key={index}
-                  className="h-44 animate-pulse rounded-[24px] border border-gray-200 bg-white"
+                  className="h-[118px] animate-pulse rounded-[22px] bg-white"
                 />
               )
             )}
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="h-[430px] animate-pulse rounded-[28px] bg-gray-200 lg:col-span-2" />
+          <div className="mt-4 grid gap-4 lg:grid-cols-3">
 
-            <div className="h-[430px] animate-pulse rounded-[28px] bg-gray-200" />
+            <div className="h-[300px] animate-pulse rounded-[24px] bg-white lg:col-span-2" />
+
+            <div className="h-[300px] animate-pulse rounded-[24px] bg-white" />
+
           </div>
+
         </div>
-      </div>
+      </main>
     );
   }
 
-  /* =====================================================
-     ERROR
-  ====================================================== */
+  /* =======================================================
+     ERROR STATE
+  ======================================================= */
 
-  if (error || !dashboard) {
+  if (!dashboard || error) {
     return (
-      <div className="min-h-screen bg-[#f8f7fb] p-6 lg:p-8">
-        <div className="mx-auto max-w-3xl rounded-[28px] border border-red-200 bg-white p-8 shadow-sm">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-            <Activity size={22} />
+      <main className="min-h-screen bg-[#f7f6fb] px-4 py-8 sm:px-6 lg:px-8">
+
+        <div className="mx-auto max-w-2xl rounded-[30px] border border-red-100 bg-white p-8 shadow-[0_20px_60px_rgba(30,20,60,0.06)]">
+
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+            <ShieldCheck size={25} />
           </div>
 
-          <h2 className="mt-5 text-xl font-bold text-gray-900">
-            Unable to load dashboard
+          <h2 className="mt-3 text-2xl font-black text-gray-950">
+            Dashboard unavailable
           </h2>
 
           <p className="mt-2 text-sm leading-6 text-gray-500">
             {error ||
-              "Dashboard data is unavailable."}
+              "We couldn't load your financial data."}
           </p>
 
           <button
             type="button"
             onClick={loadDashboard}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-purple-700"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-3 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-purple-700 hover:shadow-lg"
           >
             <RefreshCw size={16} />
             Try Again
           </button>
+
         </div>
-      </div>
+
+      </main>
     );
   }
-
-  /* =====================================================
-     DATA
-  ====================================================== */
 
   const {
     summary,
@@ -432,150 +436,285 @@ export default function DashboardPage() {
     savingsGoal,
   } = dashboard;
 
-  /* =====================================================
-     RENDER
-  ====================================================== */
+  const balanceChange =
+    summary.income > 0
+      ? (summary.savings /
+          summary.income) *
+        100
+      : 0;
+
+  /* =======================================================
+     MAIN
+  ======================================================= */
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f8f7fb] p-4 sm:p-6 lg:p-8">
+    <main className="relative min-h-screen overflow-hidden bg-[#f7f6fb]">
 
-      {/* =================================================
-          AMBIENT DASHBOARD BACKGROUND
-      ================================================= */}
+      {/* ===================================================
+          BACKGROUND
+      ==================================================== */}
 
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
 
-        <div className="absolute -left-40 -top-40 h-[500px] w-[500px] rounded-full bg-purple-300/[0.08] blur-[120px]" />
+        <div className="absolute -left-48 -top-48 h-[600px] w-[600px] animate-[pulse_8s_ease-in-out_infinite] rounded-full bg-purple-400/[0.07] blur-[130px]" />
 
-        <div className="absolute right-[-180px] top-[20%] h-[500px] w-[500px] rounded-full bg-indigo-300/[0.07] blur-[120px]" />
+        <div className="absolute right-[-220px] top-[15%] h-[600px] w-[600px] animate-[pulse_10s_ease-in-out_infinite] rounded-full bg-indigo-400/[0.06] blur-[140px]" />
 
-        <div className="absolute bottom-[-220px] left-[30%] h-[500px] w-[500px] rounded-full bg-violet-300/[0.06] blur-[120px]" />
+        <div className="absolute bottom-[-250px] left-[35%] h-[550px] w-[550px] rounded-full bg-violet-400/[0.05] blur-[140px]" />
 
         <div
-          className="absolute inset-0 opacity-[0.018]"
+          className="absolute inset-0 opacity-[0.014]"
           style={{
             backgroundImage:
               "linear-gradient(rgba(76,29,149,1) 1px, transparent 1px), linear-gradient(90deg, rgba(76,29,149,1) 1px, transparent 1px)",
-            backgroundSize: "64px 64px",
+            backgroundSize: "72px 72px",
           }}
         />
+
       </div>
 
-      <div className="relative z-10 mx-auto max-w-[1600px]">
+      <div className="relative z-10 mx-auto max-w-[1600px] px-3 py-3 sm:px-5 lg:px-7 lg:py-4">
 
         {/* =================================================
-            HEADER
-        ================================================= */}
+            HERO / WELCOME
+        ================================================== */}
 
-        <section className="relative overflow-hidden rounded-[28px] border border-white/80 bg-white/90 p-6 shadow-[0_15px_50px_rgba(17,24,39,0.05)] backdrop-blur-xl sm:p-8">
+        <section className="relative z-10">
 
-          <div className="absolute right-[-100px] top-[-130px] h-72 w-72 rounded-full bg-purple-500/[0.07] blur-3xl" />
+          <div className="relative overflow-hidden rounded-[24px] border border-white/80 bg-white/90 px-4 py-4 shadow-[0_18px_55px_rgba(30,20,60,0.055)] backdrop-blur-xl sm:px-5 sm:py-5 lg:px-6">
 
-          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="pointer-events-none absolute -right-32 -top-40 h-[420px] w-[420px] rounded-full bg-purple-500/[0.08] blur-[100px]" />
 
-            <div>
-              <div className="mb-3 flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-purple-600">
-                  <Sparkles size={14} />
-                </span>
+            <div className="pointer-events-none absolute bottom-[-150px] left-[30%] h-[300px] w-[300px] rounded-full bg-indigo-400/[0.04] blur-[90px]" />
 
-                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-purple-600">
-                  Financial overview
-                </span>
+            <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+
+              <div>
+
+                <div className="inline-flex items-center gap-2 rounded-full border border-purple-100 bg-purple-50/80 px-3 py-1.5">
+
+                  <span className="relative flex h-2 w-2">
+
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-purple-400 opacity-60" />
+
+                    <span className="relative h-2 w-2 rounded-full bg-purple-600" />
+
+                  </span>
+
+                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-purple-600">
+                    Financial command center
+                  </span>
+
+                </div>
+
+                <h1 className="mt-3 text-2xl font-black tracking-[-0.045em] text-gray-950 sm:text-3xl lg:text-[36px]">
+                  Good morning, Akash
+                  <span className="ml-2 inline-block">
+                    👋
+                  </span>
+                </h1>
+
+                <p className="mt-2 max-w-xl text-sm leading-6 text-gray-500 sm:text-base">
+                  Your money at a glance.
+                  Understand where you stand,
+                  what changed, and what deserves
+                  your attention.
+                </p>
+
               </div>
 
-              <h1 className="text-3xl font-black tracking-[-0.035em] text-gray-950 sm:text-4xl">
-                Good morning, Akash! 👋
-              </h1>
+              <div className="flex shrink-0 items-center gap-2.5">
 
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500 sm:text-base">
-                Here's what's happening with
-                your finances today.
-              </p>
-            </div>
+                <button
+                  type="button"
+                  className="group flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md"
+                >
 
-            <div className="flex flex-wrap items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+                    <CalendarDays size={16} />
+                  </span>
 
-              <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm">
-                <CalendarDays
-                  size={17}
-                  className="text-purple-500"
-                />
+                  <span>
+                    {dashboard.month.label}
+                  </span>
 
-                <span>
-                  {dashboard.month.label}
-                </span>
+                  <ChevronDown
+                    size={15}
+                    className="text-gray-400 transition-transform duration-300 group-hover:translate-y-0.5"
+                  />
 
-                <ChevronDown
-                  size={15}
-                  className="text-gray-400"
-                />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={loadDashboard}
+                  disabled={refreshing}
+                  className="flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-500 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-purple-200 hover:text-purple-600 hover:shadow-md disabled:opacity-50"
+                  title="Refresh dashboard"
+                >
+
+                  <RefreshCw
+                    size={17}
+                    className={
+                      refreshing
+                        ? "animate-spin"
+                        : ""
+                    }
+                  />
+
+                </button>
+
               </div>
 
-              <button
-                type="button"
-                onClick={loadDashboard}
-                disabled={refreshing}
-                className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-purple-200 hover:text-purple-600 disabled:opacity-60"
-              >
-                <RefreshCw
-                  size={15}
-                  className={
-                    refreshing
-                      ? "animate-spin"
-                      : ""
-                  }
-                />
-
-                Refresh
-              </button>
             </div>
+
+            {/* BALANCE */}
+
+            <div className="relative mt-4 overflow-hidden rounded-[20px] bg-gradient-to-br from-[#24103f] via-[#35165e] to-[#4c1d95] p-4 text-white shadow-[0_18px_45px_rgba(76,29,149,0.16)] sm:p-5">
+
+              <div className="pointer-events-none absolute -right-20 -top-32 h-72 w-72 rounded-full bg-purple-300/10 blur-[80px]" />
+
+              <div className="pointer-events-none absolute bottom-[-100px] left-[35%] h-60 w-60 rounded-full bg-indigo-300/10 blur-[70px]" />
+
+              <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+
+                <div>
+
+                  <div className="flex items-center gap-2">
+
+                    <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-purple-200">
+                      Total balance
+                    </span>
+
+                    <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider text-purple-100">
+                      Live
+                    </span>
+
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap items-end gap-3">
+
+                    <span className="text-3xl font-black tracking-[-0.04em] sm:text-[34px]">
+                      {formatCurrency(
+                        summary.totalBalance
+                      )}
+                    </span>
+
+                    <span
+                      className={`mb-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                        balanceChange >= 0
+                          ? "bg-emerald-400/15 text-emerald-300"
+                          : "bg-red-400/15 text-red-300"
+                      }`}
+                    >
+
+                      {balanceChange >= 0 ? (
+                        <TrendingUp size={12} />
+                      ) : (
+                        <TrendingDown size={12} />
+                      )}
+
+                      {Math.abs(
+                        balanceChange
+                      ).toFixed(1)}
+                      %
+
+                    </span>
+
+                  </div>
+
+                  <p className="mt-1 text-[11px] text-purple-200">
+                    Available financial balance
+                    this month
+                  </p>
+
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+
+                  <div className="rounded-xl border border-white/10 bg-white/[0.07] px-3 py-2.5 backdrop-blur-md">
+
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-purple-200">
+                      Income
+                    </p>
+
+                    <p className="mt-1 text-sm font-black">
+                      {formatCurrency(
+                        summary.income
+                      )}
+                    </p>
+
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-white/[0.07] px-3 py-2.5 backdrop-blur-md">
+
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-purple-200">
+                      Expenses
+                    </p>
+
+                    <p className="mt-1 text-sm font-black">
+                      {formatCurrency(
+                        summary.expenses
+                      )}
+                    </p>
+
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-white/[0.07] px-3 py-2.5 backdrop-blur-md">
+
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-purple-200">
+                      Savings
+                    </p>
+
+                    <p className="mt-1 text-sm font-black">
+                      {formatCurrency(
+                        summary.savings
+                      )}
+                    </p>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
           </div>
+
         </section>
 
         {/* =================================================
-            STAT CARDS
-        ================================================= */}
+            KPI STRIP
+        ================================================== */}
 
-        <section className="mt-6">
+        <section className="relative z-0 mt-4">
 
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-gray-400">
-                At a glance
-              </p>
+          <div
+            className="
+              grid
+              gap-3
+              sm:grid-cols-2
+              xl:grid-cols-4
+            "
+          >
 
-              <h2 className="mt-1 text-lg font-bold text-gray-900">
-                Your financial snapshot
-              </h2>
-            </div>
-          </div>
+            {/* INCOME */}
 
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <div
+              className="relative z-0"
+            >
 
-            <div className="transition-transform duration-300 hover:-translate-y-1">
-              <StatCard
-                title="Total Balance"
-                value={formatCurrency(
-                  summary.totalBalance
-                )}
-                change={`${changes.savings >= 0 ? "+" : ""}${changes.savings.toFixed(
-                  1
-                )}% savings change`}
-                positive={
-                  changes.savings >= 0
-                }
-                icon={Wallet}
-              />
-            </div>
-
-            <div className="transition-transform duration-300 hover:-translate-y-1">
               <StatCard
                 title="Income"
                 value={formatCurrency(
                   summary.income
                 )}
-                change={`${changes.income >= 0 ? "+" : ""}${changes.income.toFixed(
+                change={`${
+                  changes.income >= 0
+                    ? "+"
+                    : ""
+                }${changes.income.toFixed(
                   1
                 )}% from last month`}
                 positive={
@@ -583,15 +722,25 @@ export default function DashboardPage() {
                 }
                 icon={TrendingUp}
               />
+
             </div>
 
-            <div className="transition-transform duration-300 hover:-translate-y-1">
+            {/* EXPENSES */}
+
+            <div
+              className="relative z-0"
+            >
+
               <StatCard
                 title="Expenses"
                 value={formatCurrency(
                   summary.expenses
                 )}
-                change={`${changes.expenses >= 0 ? "+" : ""}${changes.expenses.toFixed(
+                change={`${
+                  changes.expenses >= 0
+                    ? "+"
+                    : ""
+                }${changes.expenses.toFixed(
                   1
                 )}% from last month`}
                 positive={
@@ -599,478 +748,573 @@ export default function DashboardPage() {
                 }
                 icon={TrendingDown}
               />
+
             </div>
 
-            <div className="transition-transform duration-300 hover:-translate-y-1">
+            {/* SAVINGS */}
+
+            <div
+              className="relative z-0"
+            >
+
               <StatCard
-                title="Savings Rate"
-                value={`${summary.savingsRate.toFixed(
-                  1
-                )}%`}
-                change={`${formatCurrency(
+                title="Monthly Savings"
+                value={formatCurrency(
                   summary.savings
-                )} saved this month`}
+                )}
+                change={`${summary.savingsRate.toFixed(
+                  1
+                )}% savings rate`}
                 positive={
                   summary.savings >= 0
                 }
                 icon={PiggyBank}
               />
+
+            </div>
+
+            {/* BUDGET */}
+
+            <div
+              className="relative z-0"
+            >
+
+              <StatCard
+                title="Budget Used"
+                value={`${budget.usedPercentage.toFixed(
+                  0
+                )}%`}
+                change={`${formatCurrency(
+                  Math.max(
+                    budget.remaining,
+                    0
+                  )
+                )} remaining`}
+                positive={
+                  budget.remaining >= 0
+                }
+                icon={Wallet}
+              />
+
             </div>
 
           </div>
+
         </section>
 
         {/* =================================================
-            MAIN CONTENT
-        ================================================= */}
+            CASH FLOW + AI
+        ================================================== */}
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-3">
+        <section className="relative z-0 mt-4 grid gap-4 lg:grid-cols-3">
 
-          {/* =================================================
-              LEFT COLUMN
-          ================================================= */}
+          {/* CASH FLOW */}
 
-          <div className="space-y-6 lg:col-span-2">
+          <div className="lg:col-span-2">
 
-            {/* ================= TREND ================= */}
+            <section className="group relative h-full overflow-hidden rounded-[24px] border border-gray-200/80 bg-white p-4 shadow-[0_18px_60px_rgba(30,20,60,0.05)] transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_28px_85px_rgba(30,20,60,0.10)] sm:p-5">
 
-            <section className="group relative overflow-hidden rounded-[28px] border border-gray-200/80 bg-white p-5 shadow-[0_15px_50px_rgba(17,24,39,0.05)] transition-all duration-500 hover:shadow-[0_25px_70px_rgba(17,24,39,0.08)] sm:p-6">
+              <div className="pointer-events-none absolute -right-28 -top-28 h-80 w-80 rounded-full bg-purple-500/[0.055] blur-[90px] transition-transform duration-1000 ease-out group-hover:scale-125" />
 
-              <div className="absolute right-[-100px] top-[-100px] h-64 w-64 rounded-full bg-purple-500/[0.04] blur-3xl transition-transform duration-700 group-hover:scale-125" />
+              <div className="pointer-events-none absolute -bottom-32 left-[35%] h-72 w-72 rounded-full bg-indigo-400/[0.035] blur-[90px]" />
 
-              <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative">
 
-                <div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-                      <BarChart3 size={17} />
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+
+                  <div className="flex items-center gap-3">
+
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50 via-violet-50 to-indigo-100/70 text-purple-600 shadow-sm">
+
+                      <BarChart3 size={19} />
+
                     </div>
 
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">
-                        Cash flow
+
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">
+                        Financial movement
                       </p>
 
-                      <h2 className="text-xl font-black text-gray-900">
-                        Income vs Expenses
+                      <h2 className="mt-0.5 text-xl font-black tracking-tight text-gray-950">
+                        Cash Flow
                       </h2>
+
+                      <p className="mt-0.5 text-xs text-gray-400">
+                        Income vs expenses over time
+                      </p>
+
                     </div>
+
                   </div>
 
-                  <div className="mt-3 flex items-center gap-5 text-xs text-gray-500">
+                  <div className="flex items-center self-start rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-2 text-[9px] font-bold uppercase tracking-[0.14em] text-gray-400">
+                    Last 6 months
+                  </div>
 
-                    <span className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                </div>
+
+                <div className="mt-6 flex flex-wrap items-center gap-5">
+
+                  <div className="flex items-center gap-2">
+
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+
+                    <span className="text-xs font-semibold text-gray-500">
                       Income
                     </span>
 
-                    <span className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.3)]" />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+
+                    <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+
+                    <span className="text-xs font-semibold text-gray-500">
                       Expenses
                     </span>
 
                   </div>
+
                 </div>
 
-                <span className="w-fit rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-500">
-                  Last 6 months
-                </span>
-              </div>
+                <div className="relative mt-5 h-[220px] overflow-hidden rounded-[22px] border border-gray-100/80 bg-gradient-to-b from-gray-50/70 to-white">
 
-              <div className="relative mt-6 h-[300px]">
+                  {allTransactions.length === 0 ? (
 
-                {allTransactions.length === 0 ? (
-                  <div className="flex h-full items-center justify-center rounded-2xl bg-gray-50/80 text-center">
+                    <div className="flex h-full items-center justify-center">
 
-                    <div>
-                      <BarChart3
-                        className="mx-auto text-gray-300"
-                        size={40}
-                      />
+                      <div className="text-center">
 
-                      <p className="mt-3 text-sm font-medium text-gray-500">
-                        Add transactions to
-                        see your trend.
-                      </p>
-                    </div>
+                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-gray-100 bg-white text-gray-300 shadow-sm">
 
-                  </div>
-                ) : (
-                  <ResponsiveContainer
-                    width="100%"
-                    height="100%"
-                  >
-                    <LineChart
-                      data={monthlyData}
-                      margin={{
-                        top: 10,
-                        right: 10,
-                        left: 0,
-                        bottom: 0,
-                      }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        vertical={false}
-                        stroke="#f1f1f4"
-                      />
+                          <BarChart3 size={28} />
 
-                      <XAxis
-                        dataKey="month"
-                        tick={{
-                          fontSize: 12,
-                          fill: "#9ca3af",
-                        }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-
-                      <YAxis
-                        tickFormatter={
-                          formatShortCurrency
-                        }
-                        tick={{
-                          fontSize: 11,
-                          fill: "#9ca3af",
-                        }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={55}
-                      />
-
-                      <Tooltip
-                        contentStyle={{
-                          borderRadius: "14px",
-                          border: "1px solid #e5e7eb",
-                          boxShadow:
-                            "0 15px 40px rgba(17,24,39,0.08)",
-                        }}
-                        formatter={(value) =>
-                          formatCurrency(
-                            Number(
-                              value ?? 0
-                            )
-                          )
-                        }
-                      />
-
-                      <Line
-                        type="monotone"
-                        dataKey="income"
-                        stroke="#22c55e"
-                        strokeWidth={3}
-                        dot={{
-                          r: 3,
-                          fill: "#22c55e",
-                        }}
-                        activeDot={{
-                          r: 6,
-                        }}
-                      />
-
-                      <Line
-                        type="monotone"
-                        dataKey="expenses"
-                        stroke="#ef4444"
-                        strokeWidth={3}
-                        dot={{
-                          r: 3,
-                          fill: "#ef4444",
-                        }}
-                        activeDot={{
-                          r: 6,
-                        }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-
-              </div>
-            </section>
-
-            {/* ================= LOWER GRID ================= */}
-
-            <div className="grid gap-6 md:grid-cols-2">
-
-              <div className="transition-transform duration-500 hover:-translate-y-1">
-                <ExpenseChart
-                  data={
-                    dashboard.expenseByCategory
-                  }
-                />
-              </div>
-
-              {/* ================= SAVINGS GOAL ================= */}
-
-              <section className="relative overflow-hidden rounded-[28px] border border-gray-200/80 bg-white p-6 shadow-[0_15px_50px_rgba(17,24,39,0.05)] transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_25px_70px_rgba(17,24,39,0.08)]">
-
-                <div className="absolute right-[-80px] top-[-80px] h-56 w-56 rounded-full bg-purple-500/[0.06] blur-3xl" />
-
-                <div className="relative">
-
-                  <div className="flex items-center justify-between">
-
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">
-                        Planning
-                      </p>
-
-                      <h2 className="mt-1 text-xl font-black text-gray-900">
-                        Savings Goal
-                      </h2>
-
-                      <p className="mt-1 text-sm text-gray-500">
-                        Your current progress
-                      </p>
-                    </div>
-
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600">
-                      <Target size={23} />
-                    </div>
-
-                  </div>
-
-                  {savingsGoal ? (
-                    <>
-                      <div className="mt-8 flex items-end justify-between gap-4">
-
-                        <div>
-                          <p className="text-lg font-bold text-gray-900">
-                            {savingsGoal.name}
-                          </p>
-
-                          <p className="mt-2 text-3xl font-black tracking-tight text-gray-950">
-                            {formatCurrency(
-                              savingsGoal.currentSaved
-                            )}
-                          </p>
-
-                          <p className="mt-1 text-xs text-gray-500">
-                            of{" "}
-                            {formatCurrency(
-                              savingsGoal.targetAmount
-                            )}
-                          </p>
                         </div>
 
-                        <div className="text-right">
-                          <p className="text-2xl font-black text-purple-600">
-                            {savingsGoal.progress.toFixed(
-                              0
-                            )}
-                            %
-                          </p>
+                        <p className="mt-4 text-sm font-bold text-gray-700">
+                          Your cash flow is waiting
+                        </p>
 
-                          <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                            Complete
-                          </p>
-                        </div>
+                        <p className="mx-auto mt-1 max-w-[260px] text-xs leading-5 text-gray-400">
+                          Add income and expenses to see how your money moves over time.
+                        </p>
+
+                        <Link
+                          href="/transactions"
+                          className="mt-4 inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-purple-700 hover:shadow-lg"
+                        >
+                          Add Transaction
+                          <ArrowRight size={13} />
+                        </Link>
 
                       </div>
 
-                      <div className="mt-6 h-3 overflow-hidden rounded-full bg-gray-100">
+                    </div>
 
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-purple-600 via-violet-500 to-indigo-500 transition-all duration-1000"
-                          style={{
-                            width: `${Math.min(
-                              savingsGoal.progress,
-                              100
-                            )}%`,
-                          }}
-                        />
-
-                      </div>
-
-                      <div className="mt-5 flex justify-between">
-
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                            Remaining
-                          </p>
-
-                          <p className="mt-1 text-sm font-bold text-gray-900">
-                            {formatCurrency(
-                              savingsGoal.remaining
-                            )}
-                          </p>
-                        </div>
-
-                        {savingsGoal.deadline && (
-                          <div className="text-right">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                              Target date
-                            </p>
-
-                            <p className="mt-1 text-sm font-bold text-gray-900">
-                              {new Date(
-                                savingsGoal.deadline
-                              ).toLocaleDateString(
-                                "en-IN",
-                                {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                }
-                              )}
-                            </p>
-                          </div>
-                        )}
-
-                      </div>
-
-                      <Link
-                        href="/savings"
-                        className="group mt-6 flex items-center justify-center gap-2 rounded-xl border border-purple-200 bg-purple-50/50 px-4 py-3 text-sm font-bold text-purple-600 transition-all duration-300 hover:bg-purple-100"
-                      >
-                        View Goals
-
-                        <ArrowRight
-                          size={16}
-                          className="transition-transform duration-300 group-hover:translate-x-1"
-                        />
-                      </Link>
-                    </>
                   ) : (
-                    <div className="mt-8 rounded-2xl bg-gray-50 p-7 text-center">
 
-                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-gray-300 shadow-sm">
-                        <Target size={28} />
-                      </div>
+                    <div className="h-full w-full px-1 pt-2">
 
-                      <p className="mt-4 font-bold text-gray-700">
-                        No savings goal yet
-                      </p>
-
-                      <p className="mt-1 text-sm leading-6 text-gray-500">
-                        Create a goal to track
-                        your progress.
-                      </p>
-
-                      <Link
-                        href="/savings"
-                        className="mt-5 inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-purple-700"
+                      <ResponsiveContainer
+                        width="100%"
+                        height="100%"
                       >
-                        Create Goal
-                        <ArrowRight size={16} />
-                      </Link>
+
+                        <LineChart
+                          data={monthlyData}
+                          margin={{
+                            top: 18,
+                            right: 10,
+                            left: -12,
+                            bottom: 5,
+                          }}
+                        >
+
+                          <CartesianGrid
+                            strokeDasharray="3 7"
+                            vertical={false}
+                            stroke="#eeeaf4"
+                          />
+
+                          <XAxis
+                            dataKey="month"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{
+                              fontSize: 10,
+                              fill: "#9ca3af",
+                              fontWeight: 600,
+                            }}
+                            dy={8}
+                          />
+
+                          <YAxis
+                            axisLine={false}
+                            tickLine={false}
+                            width={55}
+                            tickFormatter={formatCompactCurrency}
+                            tick={{
+                              fontSize: 9,
+                              fill: "#9ca3af",
+                              fontWeight: 500,
+                            }}
+                          />
+
+                          <Tooltip
+                            cursor={{
+                              stroke: "#c4b5fd",
+                              strokeWidth: 1,
+                              strokeDasharray: "4 4",
+                            }}
+                            contentStyle={{
+                              borderRadius: "16px",
+                              border: "1px solid #ece9f3",
+                              background:
+                                "rgba(255,255,255,0.97)",
+                              boxShadow:
+                                "0 20px 50px rgba(17,24,39,0.12)",
+                              padding: "10px 13px",
+                            }}
+                            formatter={(value, name) => [
+                              formatCurrency(
+                                Number(value ?? 0)
+                              ),
+                              name === "income"
+                                ? "Income"
+                                : "Expenses",
+                            ]}
+                          />
+
+                          <Line
+                            type="monotone"
+                            dataKey="income"
+                            stroke="#10b981"
+                            strokeWidth={3}
+                            dot={false}
+                            activeDot={{
+                              r: 6,
+                              stroke: "#ffffff",
+                              strokeWidth: 3,
+                              fill: "#10b981",
+                            }}
+                            animationBegin={150}
+                            animationDuration={1400}
+                            animationEasing="ease-out"
+                          />
+
+                          <Line
+                            type="monotone"
+                            dataKey="expenses"
+                            stroke="#ef4444"
+                            strokeWidth={3}
+                            dot={false}
+                            activeDot={{
+                              r: 6,
+                              stroke: "#ffffff",
+                              strokeWidth: 3,
+                              fill: "#ef4444",
+                            }}
+                            animationBegin={300}
+                            animationDuration={1400}
+                            animationEasing="ease-out"
+                          />
+
+                        </LineChart>
+
+                      </ResponsiveContainer>
 
                     </div>
+
                   )}
 
                 </div>
-              </section>
-            </div>
+
+              </div>
+
+            </section>
+
           </div>
 
-          {/* =================================================
-              RIGHT COLUMN
-          ================================================= */}
+          {/* AI */}
 
-          <div className="space-y-6">
+          <div>
 
-            {/* ================= AI ================= */}
+            <AIInsight
+              insight={
+                dashboard.aiInsight
+              }
+            />
 
-            <div className="transition-transform duration-500 hover:-translate-y-1">
-              <AIInsight
-                insight={
-                  dashboard.aiInsight
-                }
-              />
-            </div>
+          </div>
 
-            {/* ================= RECENT ================= */}
+        </section>
 
-            <div className="transition-transform duration-500 hover:-translate-y-1">
-              <RecentTransactions
-                transactions={
-                  dashboard.recentTransactions
-                }
-              />
-            </div>
+        {/* =================================================
+            EXPENSE + SAVINGS
+        ================================================== */}
 
-            {/* ================= BUDGET ================= */}
+        <section className="relative z-0 mt-4 grid gap-4 lg:grid-cols-2">
 
-            <section className="relative overflow-hidden rounded-[28px] border border-gray-200/80 bg-white p-6 shadow-[0_15px_50px_rgba(17,24,39,0.05)] transition-all duration-500 hover:-translate-y-1">
+          <div>
 
-              <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-purple-500/[0.05] blur-3xl" />
+            <ExpenseChart
+              data={
+                dashboard.expenseByCategory
+              }
+            />
 
-              <div className="relative">
+          </div>
 
-                <div className="flex items-center justify-between">
+          {/* SAVINGS */}
 
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400">
-                      Spending control
-                    </p>
+          <section className="group relative overflow-hidden rounded-[24px] border border-gray-200/80 bg-white p-4 shadow-[0_18px_60px_rgba(30,20,60,0.05)] transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_25px_75px_rgba(30,20,60,0.08)] sm:p-5">
 
-                    <h2 className="mt-1 text-xl font-black text-gray-900">
-                      Budget Progress
-                    </h2>
+            <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-purple-500/[0.05] blur-3xl transition-transform duration-700 group-hover:scale-125" />
 
-                    <p className="mt-1 text-sm text-gray-500">
-                      Current month
-                    </p>
-                  </div>
+            <div className="relative">
 
-                  <span
-                    className={`rounded-full px-3 py-1.5 text-xs font-bold ${
-                      budget.status ===
-                      "Exceeded"
-                        ? "bg-red-100 text-red-700"
-                        : budget.status ===
-                          "Warning"
-                        ? "bg-orange-100 text-orange-700"
-                        : "bg-green-100 text-green-700"
-                    }`}
-                  >
-                    {budget.status}
-                  </span>
+              <div className="flex items-start justify-between">
+
+                <div>
+
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">
+                    Long-term planning
+                  </p>
+
+                  <h2 className="mt-1 text-xl font-black tracking-tight text-gray-950">
+                    Savings Goal
+                  </h2>
+
+                  <p className="mt-1 text-sm text-gray-500">
+                    Build toward what matters.
+                  </p>
 
                 </div>
 
-                <div className="mt-8 text-center">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-50 text-purple-600">
+                  <Target size={20} />
+                </div>
 
-                  <div className="relative mx-auto flex h-32 w-32 items-center justify-center">
+              </div>
 
-                    <div className="absolute inset-0 rounded-full border-[10px] border-gray-100" />
+              {savingsGoal ? (
+                <>
 
-                    <div
-                      className={`absolute inset-0 rounded-full border-[10px] border-transparent ${
-                        budget.status ===
-                        "Exceeded"
-                          ? "border-t-red-500"
-                          : budget.status ===
-                            "Warning"
-                          ? "border-t-orange-500"
-                          : "border-t-purple-600"
-                      }`}
-                      style={{
-                        transform: `rotate(${Math.min(
-                          budget.usedPercentage,
-                          100
-                        ) * 3.6}deg)`,
-                      }}
-                    />
+                  <div className="mt-6 flex items-end justify-between gap-5">
 
                     <div>
-                      <p className="text-3xl font-black text-gray-950">
-                        {budget.usedPercentage.toFixed(
+
+                      <p className="text-sm font-bold text-gray-500">
+                        {savingsGoal.name}
+                      </p>
+
+                      <p className="mt-2 text-3xl font-black tracking-tight text-gray-950">
+                        {formatCurrency(
+                          savingsGoal.currentSaved
+                        )}
+                      </p>
+
+                      <p className="mt-1 text-xs text-gray-400">
+                        of{" "}
+                        {formatCurrency(
+                          savingsGoal.targetAmount
+                        )}
+                      </p>
+
+                    </div>
+
+                    <div className="text-right">
+
+                      <p className="text-3xl font-black text-purple-600">
+                        {savingsGoal.progress.toFixed(
                           0
                         )}
                         %
                       </p>
 
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
-                        Used
+                      <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-gray-400">
+                        complete
                       </p>
+
                     </div>
+
+                  </div>
+
+                  <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-gray-100">
+
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-purple-600 via-violet-500 to-indigo-500 transition-all duration-1000"
+                      style={{
+                        width: `${Math.min(
+                          Math.max(
+                            savingsGoal.progress,
+                            0
+                          ),
+                          100
+                        )}%`,
+                      }}
+                    />
+
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-between">
+
+                    <div>
+
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
+                        Remaining
+                      </p>
+
+                      <p className="mt-1 text-sm font-black text-gray-900">
+                        {formatCurrency(
+                          savingsGoal.remaining
+                        )}
+                      </p>
+
+                    </div>
+
+                    {savingsGoal.deadline && (
+                      <div className="text-right">
+
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
+                          Deadline
+                        </p>
+
+                        <p className="mt-1 text-sm font-black text-gray-900">
+                          {new Date(
+                            savingsGoal.deadline
+                          ).toLocaleDateString(
+                            "en-IN",
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            }
+                          )}
+                        </p>
+
+                      </div>
+                    )}
+
+                  </div>
+
+                  <Link
+                    href="/savings"
+                    className="group/action mt-7 flex items-center justify-center gap-2 rounded-xl border border-purple-200 bg-purple-50/60 py-3 text-xs font-bold text-purple-600 transition-all duration-300 hover:bg-purple-100"
+                  >
+                    View savings goals
+
+                    <ArrowRight
+                      size={14}
+                      className="transition-transform duration-300 group-hover/action:translate-x-1"
+                    />
+
+                  </Link>
+
+                </>
+              ) : (
+
+                <div className="mt-6 rounded-2xl bg-gray-50 p-8 text-center">
+
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-gray-300 shadow-sm">
+                    <Target size={26} />
+                  </div>
+
+                  <p className="mt-4 text-sm font-bold text-gray-700">
+                    No savings goal yet
+                  </p>
+
+                  <p className="mx-auto mt-1 max-w-[260px] text-xs leading-5 text-gray-500">
+                    Create a goal and Finora
+                    will help you track your
+                    progress.
+                  </p>
+
+                  <Link
+                    href="/savings"
+                    className="mt-5 inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-xs font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-purple-700 hover:shadow-lg"
+                  >
+                    Create Goal
+                    <ArrowRight size={14} />
+                  </Link>
+
+                </div>
+
+              )}
+
+            </div>
+
+          </section>
+
+        </section>
+
+        {/* =================================================
+            RECENT TRANSACTIONS
+        ================================================== */}
+
+        <section className="relative z-0 mt-4">
+
+          <RecentTransactions
+            transactions={
+              dashboard.recentTransactions
+            }
+          />
+
+        </section>
+
+        {/* =================================================
+            BUDGET
+        ================================================== */}
+
+        <section className="relative z-0 mt-4">
+
+          <div className="group relative overflow-hidden rounded-[24px] border border-gray-200/80 bg-white p-4 shadow-[0_18px_60px_rgba(30,20,60,0.05)] transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_25px_75px_rgba(30,20,60,0.08)] sm:p-5">
+
+            <div className="pointer-events-none absolute -right-32 -top-32 h-80 w-80 rounded-full bg-purple-500/[0.04] blur-3xl transition-transform duration-700 group-hover:scale-125" />
+
+            <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center">
+
+              <div className="flex-1">
+
+                <div className="flex items-center gap-3">
+
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-50 text-purple-600">
+                    <Wallet size={19} />
+                  </div>
+
+                  <div>
+
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">
+                      Spending control
+                    </p>
+
+                    <h2 className="text-xl font-black text-gray-950">
+                      Monthly Budget
+                    </h2>
 
                   </div>
 
                 </div>
 
-                <div className="mt-8 h-2.5 overflow-hidden rounded-full bg-gray-100">
+                <div className="mt-5 flex items-end gap-4">
+
+                  <span className="text-3xl font-black tracking-tight text-gray-950">
+                    {formatCurrency(
+                      budget.spent
+                    )}
+                  </span>
+
+                  <span className="mb-1 text-sm text-gray-400">
+                    /{" "}
+                    {formatCurrency(
+                      budget.total
+                    )}
+                  </span>
+
+                </div>
+
+                <div className="mt-5 h-3 overflow-hidden rounded-full bg-gray-100">
 
                   <div
                     className={`h-full rounded-full transition-all duration-1000 ${
@@ -1084,7 +1328,10 @@ export default function DashboardPage() {
                     }`}
                     style={{
                       width: `${Math.min(
-                        budget.usedPercentage,
+                        Math.max(
+                          budget.usedPercentage,
+                          0
+                        ),
                         100
                       )}%`,
                     }}
@@ -1092,104 +1339,142 @@ export default function DashboardPage() {
 
                 </div>
 
-                <div className="mt-7 space-y-4">
+                <div className="mt-3 flex justify-between text-[10px] font-semibold text-gray-400">
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">
-                      Spent
-                    </span>
+                  <span>
+                    {budget.usedPercentage.toFixed(
+                      0
+                    )}
+                    % used
+                  </span>
 
-                    <span className="font-bold text-gray-900">
-                      {formatCurrency(
-                        budget.spent
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">
-                      Budget
-                    </span>
-
-                    <span className="font-bold text-gray-900">
-                      {formatCurrency(
-                        budget.total
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-gray-100 pt-4">
-                    <span className="text-sm font-medium text-gray-500">
-                      Remaining
-                    </span>
-
-                    <span
-                      className={`font-black ${
-                        budget.remaining >=
-                        0
-                          ? "text-green-600"
-                          : "text-red-600"
-                      }`}
-                    >
-                      {formatCurrency(
-                        Math.abs(
+                  <span>
+                    {budget.remaining >= 0
+                      ? `${formatCurrency(
                           budget.remaining
-                        )
-                      )}
-
-                      {budget.remaining <
-                        0 &&
-                        " over"}
-                    </span>
-                  </div>
+                        )} remaining`
+                      : `${formatCurrency(
+                          Math.abs(
+                            budget.remaining
+                          )
+                        )} over budget`}
+                  </span>
 
                 </div>
 
-                <Link
-                  href="/budget"
-                  className="group mt-6 flex items-center justify-center gap-2 rounded-xl border border-purple-200 bg-purple-50/50 px-4 py-3 text-sm font-bold text-purple-600 transition-all duration-300 hover:bg-purple-100"
-                >
-                  Manage Budget
+              </div>
 
-                  <ArrowRight
-                    size={16}
-                    className="transition-transform duration-300 group-hover:translate-x-1"
-                  />
-                </Link>
+              <div className="flex items-center gap-5 rounded-2xl border border-gray-100 bg-gray-50/70 p-5 lg:min-w-[290px]">
+
+                <div
+                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
+                    budget.status ===
+                    "Exceeded"
+                      ? "bg-red-100 text-red-600"
+                      : budget.status ===
+                        "Warning"
+                      ? "bg-orange-100 text-orange-600"
+                      : "bg-emerald-100 text-emerald-600"
+                  }`}
+                >
+                  <ShieldCheck size={24} />
+                </div>
+
+                <div>
+
+                  <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-gray-400">
+                    Budget health
+                  </p>
+
+                  <p
+                    className={`mt-1 text-lg font-black ${
+                      budget.status ===
+                      "Exceeded"
+                        ? "text-red-600"
+                        : budget.status ===
+                          "Warning"
+                        ? "text-orange-600"
+                        : "text-emerald-600"
+                    }`}
+                  >
+                    {budget.status}
+                  </p>
+
+                  <p className="mt-1 text-xs text-gray-500">
+                    Finora is monitoring
+                    your spending.
+                  </p>
+
+                </div>
 
               </div>
-            </section>
+
+              <Link
+                href="/budget"
+                className="group/budget flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gray-950 px-5 py-3 text-xs font-bold text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-purple-700 hover:shadow-lg"
+              >
+                Manage Budget
+
+                <ArrowRight
+                  size={14}
+                  className="transition-transform duration-300 group-hover/budget:translate-x-1"
+                />
+
+              </Link>
+
+            </div>
+
           </div>
-        </div>
+
+        </section>
 
         {/* =================================================
-            BOTTOM STATUS
-        ================================================= */}
+            FOOTER STATUS
+        ================================================== */}
 
-        <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-gray-200/70 bg-white/60 px-5 py-4 text-xs text-gray-400 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex flex-col gap-3 px-2 pb-4 text-[10px] font-medium text-gray-400 sm:flex-row sm:items-center sm:justify-between">
 
           <div className="flex items-center gap-2">
+
             <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60" />
-              <span className="relative h-2 w-2 rounded-full bg-green-500" />
+
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" />
+
+              <span className="relative h-2 w-2 rounded-full bg-emerald-500" />
+
             </span>
 
-            Dashboard synced with your latest financial data.
+            Finora is synced with your latest
+            financial data.
+
           </div>
 
           <button
             type="button"
             onClick={loadDashboard}
             disabled={refreshing}
-            className="w-fit font-semibold text-gray-500 transition hover:text-purple-600 disabled:opacity-50"
+            className="flex items-center gap-1.5 transition-colors hover:text-purple-600 disabled:opacity-50"
           >
+
+            <RefreshCw
+              size={12}
+              className={
+                refreshing
+                  ? "animate-spin"
+                  : ""
+              }
+            />
+
             {refreshing
               ? "Updating..."
               : "Refresh data"}
+
           </button>
+
         </div>
 
       </div>
-    </div>
+
+    </main>
   );
 }

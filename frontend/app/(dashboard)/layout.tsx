@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+
 import Sidebar from "@/components/dashboard/Sidebar";
 import Navbar from "@/components/dashboard/Navbar";
 import FinoraAIFloatingButton from "@/components/ai/FinoraAIFloatingButton";
@@ -14,64 +15,41 @@ export default function DashboardLayout({
         useState(false);
 
     return (
-        <div className="flex min-h-screen w-full bg-gray-50">
+        <div className="min-h-screen w-full bg-[#f7f6fb]">
 
-            {/* =====================================================
-                DESKTOP / MOBILE SIDEBAR
-            ====================================================== */}
-
+            {/* SIDEBAR */}
             <Sidebar
-                mobileMenuOpen={
-                    mobileMenuOpen
-                }
-                setMobileMenuOpen={
-                    setMobileMenuOpen
-                }
+                mobileMenuOpen={mobileMenuOpen}
+                setMobileMenuOpen={setMobileMenuOpen}
             />
 
-            {/* =====================================================
-                MAIN AREA
-            ====================================================== */}
-
-            <main
+            {/* MAIN APPLICATION */}
+            <div
                 className="
-                    min-h-screen
-                    min-w-0
-                    flex-1
-                    overflow-x-hidden
+                group/dashboard-shell
+                min-h-screen
+                lg:ml-20
+                transition-[margin]
+                duration-300
                 "
             >
+
+                {/* NAVBAR */}
                 <Navbar
-                    mobileMenuOpen={
-                        mobileMenuOpen
-                    }
-                    setMobileMenuOpen={
-                        setMobileMenuOpen
-                    }
+                    mobileMenuOpen={mobileMenuOpen}
+                    setMobileMenuOpen={setMobileMenuOpen}
                 />
 
-                <div
-                    className="
-                        mx-auto
-                        w-full
-                        max-w-7xl
-                        px-4
-                        py-5
-                        sm:px-6
-                        sm:py-6
-                        lg:px-8
-                        lg:py-8
-                    "
-                >
+                {/* PAGE CONTENT */}
+                <main className="min-w-0">
                     {children}
-                </div>
-            </main>
+                </main>
 
-            {/* =====================================================
-                FINORA AI FLOATING BUTTON
-            ====================================================== */}
+            </div>
 
+            {/* FINORA AI */}
             <FinoraAIFloatingButton />
+
         </div>
     );
 }
